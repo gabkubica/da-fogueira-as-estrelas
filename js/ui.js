@@ -248,8 +248,7 @@
   UI.tick = function () {
     const sig = TABS.filter((t) => t.show()).map((t) => t.id).join(',');
     if (sig !== UI.tabsSig) UI.renderTabs();
-    if (UI.dirtyTab && !UI.panelDown && performance.now() - UI.lastRender > 350) UI.renderTab();
-    UI.refresh();
+    if (UI.dirtyTab && !UI.panelDown && performance.now() - UI.lastRender > 200) UI.renderTab();
   };
 
   const sec = (title, inner, cls) => `<section class="sec ${cls || ''}"><h3>${title}</h3>${inner}</section>`;
@@ -641,9 +640,13 @@
     if (!el || el.disabled) return;
     const fn = ACT[el.dataset.act];
     if (!fn) return;
-    const r = fn(el.dataset, e);
-    UI.dirtyTab = true;
-    if (r !== false && el.dataset.act !== 'tab') UI.lastRender = 0;
+    const act = el.dataset.act;
+    fn(el.dataset, e);
+    if (act === 'expand' || act === 'annex' || act === 'annexpart') G.mapview.terrDirty = true;
+    // ações que mudam a aba atual: redesenha já, sem esperar o próximo ciclo
+    const noRender = { tab: 1, tree: 1, menu: 1, editflag: 1, export: 1, import: 1, wipe: 1, upload: 1, download: 1, view: 1, goto: 1, selbody: 1 };
+    if (!noRender[act]) UI.renderTab();
+    else UI.dirtyTab = true;
     UI.refresh();
   }
   UI.wire = function () {

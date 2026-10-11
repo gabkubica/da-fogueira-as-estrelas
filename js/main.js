@@ -273,11 +273,12 @@
     last = t;
     if (M.running) {
       uiT += dt;
-      if (uiT > 0.25) {
+      if (uiT > 0.2) {
         uiT = 0;
-        UI.tick(); UI.refreshSel();
+        UI.tick();
         if (pendingTicker) { pendingTicker = false; UI.updateTicker(); }
       }
+      UI.refresh(); UI.refreshSel();
 
       if (pendingTerr && t - lastTerr > 280) { pendingTerr = false; lastTerr = t; MV.terrDirty = true; if (MV.style === 'night') MV.lightsDirty = true; }
       if (MV.style === 'night' && t - (M.lastLights || 0) > 5000) { M.lastLights = t; MV.lightsDirty = true; }
@@ -367,7 +368,7 @@
       if (h < 0) return;
       const f = game.frontier();
       if (game.owner[h] === -1 && f.mark[h]) {
-        if (game.claimTile(h)) { UI.hoverCard(h, x, y); UI.dirtyTab = true; }
+        if (game.claimTile(h)) { MV.terrDirty = true; pendingTerr = false; lastTerr = performance.now(); UI.hoverCard(h, x, y); UI.dirtyTab = true; }
         else UI.toast('Faltam recursos para anexar esta terra', 'bad');
         return;
       }

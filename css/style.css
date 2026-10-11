@@ -566,3 +566,9 @@ body.panel-collapsed #toasts { right: 16px; }
 .savegrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
 .savegrid .btn { justify-content: center; white-space: normal; }
 @media (max-width: 900px) { .hud-menu span { display: none; } }
+
+/* resposta imediata ao toque */
+.btn, .tab, .choice, .hud-menu, #viewbar button, #mapctl button, .fp, .fe, .fc, .voice { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.btn { transition: background .08s, color .08s, border-color .08s, transform .05s; }
+.btn:active:not(:disabled), .hud-menu:active, #mapctl button:active, #viewbar button:active, .choice:active { transform: translateY(1px); filter: brightness(1.15); }
+.tab:active { color: var(--accent); }
