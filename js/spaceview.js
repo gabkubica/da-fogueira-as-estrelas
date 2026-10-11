@@ -80,7 +80,7 @@
         for (let i = 0; i < (ls - 1) * 4; i++) ctx.fillRect(mx + (G.hash2(i, 5, 2) - 0.3) * mr * 0.9, my + (G.hash2(i, 6, 2) - 0.5) * mr * 1.2, 1.4, 1.4);
         ctx.strokeStyle = G.rgba(s.color, 0.8); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(mx, my, mr + 4, 0, 7); ctx.stroke();
       }
-      ctx.fillStyle = 'rgba(220,226,240,0.8)'; ctx.font = "12px 'Inter', sans-serif"; ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(220,226,240,0.8)'; ctx.font = "12px 'IBM Plex Sans', sans-serif"; ctx.textAlign = 'center';
       ctx.fillText('Lua', mx, my + mr + 16);
     };
     if (mz < 0) drawMoon();
@@ -102,9 +102,9 @@
       }
     }
     if (mz >= 0) drawMoon();
-    ctx.fillStyle = 'rgba(230,236,250,0.9)'; ctx.font = "600 14px 'Inter', sans-serif"; ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(230,236,250,0.9)'; ctx.font = "600 14px 'IBM Plex Sans', sans-serif"; ctx.textAlign = 'center';
     ctx.fillText('Terra', cx, cy + R + 32);
-    ctx.font = "12px 'Inter', sans-serif"; ctx.fillStyle = 'rgba(190,205,230,0.75)';
+    ctx.font = "12px 'IBM Plex Sans', sans-serif"; ctx.fillStyle = 'rgba(190,205,230,0.75)';
     ctx.fillText(`${G.fmt(s.pop)} habitantes · ${nsat} satélites`, cx, cy + R + 50);
     SV.globe.hit = { cx, cy, R, mx, my };
   };
@@ -134,7 +134,8 @@
   SV.solarFit = function () {
     const c = SV.solar.cam;
     c.x = 0; c.y = 0;
-    c.z = Math.min(SV.screenW / 1180, SV.screenH / (1180 * TILT + 120));
+    // começa enquadrando o sistema interno até Júpiter, onde a ação começa
+    c.z = Math.min(SV.screenW / 640, SV.screenH / (640 * TILT + 120));
   };
   const S2 = (x, y) => { const c = SV.solar.cam; return [(x - c.x) * c.z + SV.screenW / 2, (y - c.y) * c.z + SV.screenH / 2]; };
 
@@ -242,7 +243,7 @@
         if (z < 0.55 && mid !== 'lua') continue;
         drawBody(mid, G.BODY[mid] ? G.BODY[mid].name : mid, md.r, md.color, null);
       }
-      ctx.fillStyle = 'rgba(210,222,245,0.8)'; ctx.font = "11px 'Inter', sans-serif"; ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(210,222,245,0.8)'; ctx.font = "11px 'IBM Plex Sans', sans-serif"; ctx.textAlign = 'center';
       ctx.fillText(pd.name, x, y + rr + 13);
     }
     // marcadores de estágio
@@ -307,6 +308,24 @@
     core.addColorStop(0, 'rgba(255,236,200,0.75)'); core.addColorStop(0.25, 'rgba(255,200,150,0.25)'); core.addColorStop(1, 'rgba(120,100,160,0)');
     x.fillStyle = core; x.fillRect(0, 0, S, S);
     const RG = G.GAL.RG;
+    // brilho difuso dos braços
+    x.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 1400; i++) {
+      const arm = Math.floor(r() * 4);
+      const t = 0.06 + Math.pow(r(), 0.8) * 0.95;
+      const ang = (arm / 4) * Math.PI * 2 + t * 3.4 + (r() + r() - 1) * (0.32 - 0.14 * t);
+      const rr = t * RG * 1.02;
+      const px = S / 2 + Math.cos(ang) * rr * k, py = S / 2 + Math.sin(ang) * rr * k;
+      const rad = (16 + r() * 34) * k * (1.2 - t * 0.5);
+      const gg = x.createRadialGradient(px, py, 0, px, py, rad);
+      const warm = t < 0.3 ? '255,215,170' : r() < 0.75 ? '150,175,255' : '255,190,210';
+      gg.addColorStop(0, 'rgba(' + warm + ',0.07)'); gg.addColorStop(1, 'rgba(' + warm + ',0)');
+      x.fillStyle = gg; x.fillRect(px - rad, py - rad, rad * 2, rad * 2);
+    }
+    const core2 = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S * 0.09);
+    core2.addColorStop(0, 'rgba(255,245,225,0.9)'); core2.addColorStop(0.4, 'rgba(255,215,160,0.35)'); core2.addColorStop(1, 'rgba(255,190,120,0)');
+    x.fillStyle = core2; x.fillRect(0, 0, S, S);
+    x.globalCompositeOperation = 'source-over';
     for (let i = 0; i < 26000; i++) {
       const arm = Math.floor(r() * 4);
       const t = Math.pow(r(), 0.7);
@@ -456,16 +475,16 @@
     ctx.textAlign = 'center';
     for (const L of SV._alienLabels || []) {
       const [x, y] = GS(L.x, L.y);
-      ctx.font = "600 12px 'Inter', sans-serif";
+      ctx.font = "600 12px 'IBM Plex Sans', sans-serif";
       ctx.fillStyle = L.gone ? 'rgba(200,210,230,0.45)' : G.rgba(L.col, 0.9);
       ctx.fillText(L.name.toUpperCase() + (L.gone ? ' (humanos)' : ''), x, y);
     }
     const sol = sys[g.gal.sol];
     const [solx, soly] = GS(sol.x, sol.y);
-    ctx.font = "600 12px 'Inter', sans-serif"; ctx.fillStyle = '#fff';
+    ctx.font = "600 12px 'IBM Plex Sans', sans-serif"; ctx.fillStyle = '#fff';
     ctx.fillText('Sol', solx, soly - 10);
     if (c.z > 2.2) {
-      ctx.font = "11px 'Inter', sans-serif";
+      ctx.font = "11px 'IBM Plex Sans', sans-serif";
       for (let i = 0; i < sys.length; i++) {
         if (i === g.gal.sol) continue;
         const [x, y] = GS(sys[i].x, sys[i].y);

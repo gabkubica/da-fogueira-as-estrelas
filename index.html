@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Da Fogueira às Estrelas</title>
+  <meta name="description" content="Um jogo incremental sobre a humanidade: da primeira tribo à conquista da galáxia.">
+  <meta name="theme-color" content="#1a120b">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='6' fill='%231a120b'/%3E%3Cpath d='M20 6c3 6 8 9 7 16-.5 5-3.5 9-7 9s-7-3-7-8c0-5 3-6 3-10 2 2 2.5 4 3.5 5.5C21 14 21.5 10 20 6z' fill='%23f2a23a'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-map="parchment" data-view="earth">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="flagShade" x1="0" x2="1" y1="0" y2="0">
+        <stop offset="0" stop-color="#fff" stop-opacity="0.5"/><stop offset="0.25" stop-color="#000" stop-opacity="0.1"/>
+        <stop offset="0.5" stop-color="#fff" stop-opacity="0.35"/><stop offset="0.75" stop-color="#000" stop-opacity="0.15"/><stop offset="1" stop-color="#fff" stop-opacity="0.3"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <header id="hud"></header>
+  <div id="timeline"></div>
+  <main>
+    <section id="stage">
+      <canvas id="view"></canvas>
+      <div id="viewbar" hidden></div>
+      <div id="mapctl">
+        <button data-z="in" aria-label="Aproximar">+</button>
+        <button data-z="out" aria-label="Afastar">−</button>
+        <button data-z="home" aria-label="Centralizar">◎</button>
+      </div>
+      <div id="notice" class="notice" hidden></div>
+      <div id="eranote" hidden></div>
+      <div id="ticker"></div>
+      <div id="hovercard" hidden></div>
+      <div id="selcard" hidden></div>
+      <div id="loading" hidden><span>Desenhando o mundo…</span><div class="bar"><i></i></div></div>
+    </section>
+    <aside id="panel">
+      <button id="panel-toggle">Painel</button>
+      <nav id="tabs"></nav>
+      <div id="tabbody"></div>
+    </aside>
+  </main>
+
+  <div id="modal" class="modal" hidden></div>
+  <div id="cine" hidden></div>
+  <div id="toasts"></div>
+  <div id="tip" hidden></div>
+  <div id="start" hidden></div>
+
+  <script src="js/util.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/galaxy.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/flag.js"></script>
+  <script src="js/mapview.js"></script>
+  <script src="js/spaceview.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -6,10 +6,10 @@
   // ======================= EQUILÍBRIO =======================
   // Escalas de custo por era. Ajustadas por simulação (tools/sim.js).
   G.BAL = {
-    SC: [2.42e2, 7.16e5, 8.12e7, 1.72e9, 4.55e8, 2.38e10, 4.12e12, 3.02e14, 2.01e15, 5.23e19, 3.05e20, 3.55e22],
-    KC: [1.93e2, 5.23e5, 4.68e7, 8.59e8, 2.28e8, 1.10e10, 1.78e12, 1.13e14, 8.05e14, 2.09e19, 1.22e20, 1.42e22],
-    TC: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5], // custo de terras (fator sobre a escala da era)
-    RIV: 0.5, // custo de anexar povos
+    SC: [6.06e1, 3.98e4, 3.58e6, 7.21e7, 5.05e9, 1.01e11, 2.29e12, 6.32e13, 1.64e16, 3.27e20, 1.23e22, 8.46e23],
+    KC: [4.85e1, 2.93e4, 2.33e6, 4.02e7, 2.53e9, 5.05e10, 1.01e12, 2.53e13, 6.51e15, 1.31e20, 4.91e21, 3.38e23],
+    TC: [40.3, 7.24, 5.54, 4.81, 4.52, 1.51, 0.906, 0.576, 0.1, 0.1, 0.1, 0.1], // segundos de capacidade produtiva por terra (ritmo da expansão por era)
+    RIV: 0.3, // anexar um povo custa ~0,6 terra por território dele, pago em força ou cultura
     capPerTile: [4, 16, 55, 160, 420, 1000, 3800, 30000, 60000, 90000, 120000, 150000],
     bonusBase: 0.12, bonusGrowth: 1.7,
     capBonusBase: 0.08, capBonusGrowth: 1.45,
@@ -23,7 +23,7 @@
 
   // ======================= RECURSOS / SETORES =======================
   G.SECTORS = [
-    { id: 'food', name: 'Alimento', base: 1.3, unlock: 0, color: '#6f8f2f',
+    { id: 'food', name: 'Alimento', base: 1.6, unlock: 0, color: '#6f8f2f',
       workers: ['Caçadores-coletores', 'Agricultores', 'Agricultores', 'Camponeses', 'Camponeses', 'Lavradores', 'Agricultores', 'Agrônomos', 'Agrônomos', 'Bioengenheiros', 'Bioengenheiros', 'Bioengenheiros'] },
     { id: 'materials', name: 'Materiais', base: 0.5, unlock: 0, color: '#8a5a2b',
       workers: ['Lascadores', 'Artesãos', 'Ferreiros', 'Construtores', 'Artífices', 'Artífices', 'Operários', 'Operários', 'Técnicos', 'Mineradores', 'Forjadores', 'Forjadores'] },
@@ -271,6 +271,7 @@
     T('globalizacao', 7, 'Globalização', 'O mundo vira um só mercado.', 2.2, { mult: { wealth: 2 }, gov: ['governo_mundial'], pol: ['estado_bem_estar', 'propaganda', 'economia_planejada'] }, ['aviacao']),
     T('internet', 7, 'Internet', 'Todo o conhecimento, em todo lugar.', 2.6, { mult: { culture: 1.8, knowledge: 1.5 }, slots: 1, gov: ['tecnocracia'], pol: ['ciencia_aberta'] }, ['computadores']),
     T('foguetes', 7, 'Foguetes', 'Combustível, aço e coragem.', 3, { mult: { energy: 1.3, military: 1.3 } }, ['fissao']),
+    T('genetica', 7, 'Engenharia Genética', 'O código da vida, legível e editável. Abre a Evolução Humana.', 2.4, { growth: 1.2, flags: { genes: 1 } }, ['antibioticos']),
     T('voo_espacial', 7, 'Voo Espacial Tripulado', 'Uma pegada na poeira de outro mundo. Começa a Era Espacial.', 6, { mult: { knowledge: 1.5 }, era: 8, need: { tiles: 0.6 } }),
     // 8 — Espacial
     T('satelites', 8, 'Constelações de Satélites', 'Milhares de olhos em órbita.', 1, { mult: { knowledge: 1.3, wealth: 1.2 }, bodies: ['orbita'] }),
@@ -316,23 +317,23 @@
 
   // ======================= GOVERNOS =======================
   G.GOVS = [
-    { id: 'anciaos', name: 'Conselho de Anciãos', desc: 'Os mais velhos decidem ao redor do fogo.', eff: { mult: { culture: 1.1 }, growth: 1.1 } },
-    { id: 'chefatura', name: 'Chefatura', desc: 'Um chefe, muitos guerreiros.', eff: { mult: { military: 1.25, materials: 1.1 } } },
-    { id: 'cidade_estado', name: 'Cidade-Estado', desc: 'Muralhas, mercado e assembleia.', eff: { mult: { wealth: 1.25, knowledge: 1.1, military: 0.9 } } },
-    { id: 'monarquia', name: 'Monarquia Divina', desc: 'O rei é filho do céu.', eff: { mult: { culture: 1.25, knowledge: 0.95 }, cap: 1.1 } },
-    { id: 'republica', name: 'República', desc: 'Senado, cônsules e cidadãos.', eff: { mult: { knowledge: 1.25, wealth: 1.2, military: 0.9 } } },
-    { id: 'imperio', name: 'Império', desc: 'Um imperador, muitos povos. Conquistas 20% mais baratas.', eff: { mult: { military: 1.35, culture: 0.9 }, conquest: 0.8 } },
-    { id: 'feudal', name: 'Monarquia Feudal', desc: 'Senhores, vassalos e servos.', eff: { mult: { food: 1.3, military: 1.25, knowledge: 0.9 } } },
-    { id: 'teocracia', name: 'Teocracia', desc: 'A fé governa.', eff: { mult: { culture: 1.5, knowledge: 0.85 }, absorb: 0.85 } },
-    { id: 'absolutismo', name: 'Monarquia Absolutista', desc: 'Todo poder ao trono.', eff: { mult: { military: 1.3, materials: 1.2, culture: 0.95 } } },
-    { id: 'republica_mercantil', name: 'República Mercantil', desc: 'Governada por mercadores. Expansão ultramarina 20% mais barata.', eff: { mult: { wealth: 1.5 }, overseas: 0.8 } },
-    { id: 'democracia', name: 'Democracia Liberal', desc: 'Liberdade, voto e imprensa.', eff: { mult: { knowledge: 1.3, wealth: 1.3, culture: 1.2, military: 0.85 } } },
-    { id: 'estado_industrial', name: 'Estado Industrial', desc: 'Planos quinquenais e chaminés.', eff: { mult: { materials: 1.5, energy: 1.3, culture: 0.85 } } },
-    { id: 'tecnocracia', name: 'Tecnocracia', desc: 'Governam os que sabem.', eff: { mult: { knowledge: 1.6, energy: 1.2, culture: 0.9 } } },
-    { id: 'governo_mundial', name: 'Governo Mundial', desc: 'Uma só humanidade. Absorções 30% mais baratas.', eff: { mult: { food: 1.15, materials: 1.15, knowledge: 1.15, culture: 1.15, wealth: 1.15, energy: 1.15 }, absorb: 0.7 } },
-    { id: 'federacao_solar', name: 'Federação Solar', desc: 'Muitos mundos, uma bandeira. Espaço 20% mais barato.', eff: { mult: { food: 1.15, materials: 1.15, knowledge: 1.15, culture: 1.15, wealth: 1.15, energy: 1.15 }, space: 0.8 } },
-    { id: 'hegemonia', name: 'Hegemonia Humana', desc: 'A humanidade acima de tudo. Guerras 30% mais baratas, diplomacia mais difícil.', eff: { mult: { military: 2, materials: 1.2 }, conquest: 0.7, diplomacy: 0.6 } },
-    { id: 'consciencia', name: 'Consciência Coletiva', desc: 'Uma mente distribuída por mil mundos.', eff: { mult: { knowledge: 2, culture: 1.5 }, growth: 0.85, absorb: 0.7 } },
+    { id: 'anciaos', title: 'Tribo', name: 'Conselho de Anciãos', desc: 'Os mais velhos decidem ao redor do fogo.', eff: { mult: { culture: 1.1 }, growth: 1.1 } },
+    { id: 'chefatura', title: 'Chefia', name: 'Chefatura', desc: 'Um chefe, muitos guerreiros.', eff: { mult: { military: 1.25, materials: 1.1 } } },
+    { id: 'cidade_estado', title: 'Cidade-Estado', name: 'Cidade-Estado', desc: 'Muralhas, mercado e assembleia.', eff: { mult: { wealth: 1.25, knowledge: 1.1, military: 0.9 } } },
+    { id: 'monarquia', title: 'Reino', name: 'Monarquia Divina', desc: 'O rei é filho do céu.', eff: { mult: { culture: 1.25, knowledge: 0.95 }, cap: 1.1 } },
+    { id: 'republica', title: 'República', name: 'República', desc: 'Senado, cônsules e cidadãos.', eff: { mult: { knowledge: 1.25, wealth: 1.2, military: 0.9 } } },
+    { id: 'imperio', title: 'Império', name: 'Império', desc: 'Um imperador, muitos povos. Conquistas 20% mais baratas.', eff: { mult: { military: 1.35, culture: 0.9 }, conquest: 0.8 } },
+    { id: 'feudal', title: 'Reino', name: 'Monarquia Feudal', desc: 'Senhores, vassalos e servos.', eff: { mult: { food: 1.3, military: 1.25, knowledge: 0.9 } } },
+    { id: 'teocracia', title: 'Teocracia', name: 'Teocracia', desc: 'A fé governa.', eff: { mult: { culture: 1.5, knowledge: 0.85 }, absorb: 0.85 } },
+    { id: 'absolutismo', title: 'Coroa', name: 'Monarquia Absolutista', desc: 'Todo poder ao trono.', eff: { mult: { military: 1.3, materials: 1.2, culture: 0.95 } } },
+    { id: 'republica_mercantil', title: 'Sereníssima República', name: 'República Mercantil', desc: 'Governada por mercadores. Expansão ultramarina 20% mais barata.', eff: { mult: { wealth: 1.5 }, overseas: 0.8 } },
+    { id: 'democracia', title: 'República', name: 'Democracia Liberal', desc: 'Liberdade, voto e imprensa.', eff: { mult: { knowledge: 1.3, wealth: 1.3, culture: 1.2, military: 0.85 } } },
+    { id: 'estado_industrial', title: 'União', name: 'Estado Industrial', desc: 'Planos quinquenais e chaminés.', eff: { mult: { materials: 1.5, energy: 1.3, culture: 0.85 } } },
+    { id: 'tecnocracia', title: 'Tecnocracia', name: 'Tecnocracia', desc: 'Governam os que sabem.', eff: { mult: { knowledge: 1.6, energy: 1.2, culture: 0.9 } } },
+    { id: 'governo_mundial', title: 'Governo Mundial', name: 'Governo Mundial', desc: 'Uma só humanidade. Absorções 30% mais baratas.', eff: { mult: { food: 1.15, materials: 1.15, knowledge: 1.15, culture: 1.15, wealth: 1.15, energy: 1.15 }, absorb: 0.7 } },
+    { id: 'federacao_solar', title: 'Federação Solar', name: 'Federação Solar', desc: 'Muitos mundos, uma bandeira. Espaço 20% mais barato.', eff: { mult: { food: 1.15, materials: 1.15, knowledge: 1.15, culture: 1.15, wealth: 1.15, energy: 1.15 }, space: 0.8 } },
+    { id: 'hegemonia', title: 'Hegemonia', name: 'Hegemonia Humana', desc: 'A humanidade acima de tudo. Guerras 30% mais baratas, diplomacia mais difícil.', eff: { mult: { military: 2, materials: 1.2 }, conquest: 0.7, diplomacy: 0.6 } },
+    { id: 'consciencia', title: 'Consciência', name: 'Consciência Coletiva', desc: 'Uma mente distribuída por mil mundos.', eff: { mult: { knowledge: 2, culture: 1.5 }, growth: 0.85, absorb: 0.7 } },
   ];
   G.GOV = {};
   G.GOVS.forEach((g) => (G.GOV[g.id] = g));
@@ -502,15 +503,15 @@
     M('t1000', 'Império Mundial', '1.000 territórios.', (g) => g.ownedLand >= 1000),
     M('half', 'Meio Mundo', 'Metade da terra firme do planeta.', (g) => g.landFrac() >= 0.5),
     M('all', 'Um Só Mundo', 'Toda a terra firme do planeta.', (g) => g.landFrac() >= 0.999),
-    M('city10', 'Dez Assentamentos', '10 assentamentos.', (g) => g.s.settlements.length >= 10),
-    M('city50', 'Cinquenta Cidades', '50 assentamentos.', (g) => g.s.settlements.length >= 50),
-    M('city150', 'Rede Urbana', '150 assentamentos.', (g) => g.s.settlements.length >= 150),
+    M('city10', 'Dez Assentamentos', '10 assentamentos.', (g) => g.s.settlements.filter((x) => x.owner === 0).length >= 10),
+    M('city50', 'Cinquenta Cidades', '50 assentamentos.', (g) => g.s.settlements.filter((x) => x.owner === 0).length >= 50),
+    M('city150', 'Rede Urbana', '150 assentamentos.', (g) => g.s.settlements.filter((x) => x.owner === 0).length >= 150),
     M('conq1', 'Primeira Anexação', 'Incorporar outro povo.', (g) => g.s.stats.absorbed >= 1),
     M('conq5', 'Muitos Povos', 'Incorporar 5 povos.', (g) => g.s.stats.absorbed >= 5),
     M('conqAll', 'Nenhum Rival', 'Incorporar todos os povos da Terra.', (g) => g.s.rivals.length > 0 && g.s.rivals.every((r) => !r.alive)),
-    M('w3', 'Construtores', '3 maravilhas.', (g) => Object.keys(g.s.wonders).length >= 3),
-    M('w10', 'Legado de Pedra', '10 maravilhas.', (g) => Object.keys(g.s.wonders).length >= 10),
-    M('w20', 'Assombro do Mundo', '20 maravilhas.', (g) => Object.keys(g.s.wonders).length >= 20),
+    M('w3', 'Construtores', '3 maravilhas.', (g) => g.d.glory >= 3),
+    M('w10', 'Legado de Pedra', '10 maravilhas.', (g) => g.d.glory >= 10),
+    M('w20', 'Assombro do Mundo', '20 maravilhas.', (g) => g.d.glory >= 20),
     M('tech30', 'Curiosos', '30 tecnologias.', (g) => Object.keys(g.s.techs).length >= 30),
     M('tech60', 'Sábios', '60 tecnologias.', (g) => Object.keys(g.s.techs).length >= 60),
     M('tech90', 'Iluminados', '90 tecnologias.', (g) => Object.keys(g.s.techs).length >= 90),
@@ -525,8 +526,39 @@
     M('xeno', 'Humanidade Expandida', 'Incorporar uma espécie alienígena.', (g) => g.s.galaxy && g.s.galaxy.aliens.some((a) => a.gone)),
   ];
   G.MILESTONE_BONUS = 0.04;
+  G.GLORY_BONUS = 0.05; // por maravilha concluída
 
-  // ======================= LEGADO (prestígio) =======================
+  // ======================= EVOLUÇÃO HUMANA =======================
+  // c = custo relativo (saber e alimento) na escala da era
+  const GN = (id, era, name, desc, c, eff, req) => ({ id, era, name, desc, c, eff, req: req || [] });
+  G.GENES = [
+    GN('terapia', 7, 'Terapia Gênica', 'Doenças hereditárias deixam de existir.', 2, { growth: 1.3, cap: 1.1 }),
+    GN('imunidade', 7, 'Imunidade Universal', 'Nenhuma epidemia nos alcança.', 3, { cap: 1.2, growth: 1.15 }, ['terapia']),
+    GN('longevidade', 7, 'Longevidade', 'Viver cento e cinquenta anos com saúde. Mais tempo para aprender, criar e lembrar.', 4, { mult: { culture: 1.3, knowledge: 1.25 } }, ['terapia']),
+    GN('cognicao', 8, 'Cognição Aumentada', 'Memória perfeita e raciocínio mais rápido.', 2, { mult: { knowledge: 1.6 } }, ['longevidade']),
+    GN('gravidade', 8, 'Adaptação à Baixa Gravidade', 'Ossos e músculos que não definham longe da Terra. Projetos espaciais 20% mais baratos.', 3, { space: 0.8 }, ['imunidade']),
+    GN('radiacao', 8, 'Resistência à Radiação', 'Células que reparam o próprio DNA. Colônias espaciais abrigam 60% mais gente.', 4, { bodyCap: 1.6 }, ['gravidade']),
+    GN('fotossintese', 9, 'Simbiose Fotossintética', 'Pele que se alimenta de luz.', 2, { mult: { food: 2.5 }, growth: 1.2 }, ['radiacao']),
+    GN('neural', 9, 'Interface Neural', 'Pensamento direto para a máquina, e de volta.', 3, { mult: { knowledge: 1.5, culture: 1.3 } }, ['cognicao']),
+    GN('hibernacao', 9, 'Hibernação Induzida', 'Dormir décadas sem envelhecer. Alcance estelar +10 anos-luz.', 4, { flags: { rangeAdd: 10 } }, ['radiacao']),
+    GN('sinteticos', 10, 'Corpos Sintéticos', 'O corpo vira escolha.', 2.5, { cap: 1.5, mult: { military: 1.6 } }, ['hibernacao']),
+    GN('mente', 10, 'Mente Expandida', 'Empatia ampliada, até por quem não é humano. Integrações 30% mais baratas.', 3.5, { mult: { culture: 2 }, absorb: 0.7, diplomacy: 1.3 }, ['neural']),
+    GN('pos_humano', 11, 'Pós-Humanidade', 'Ainda nos chamamos de humanos. Por teimosia, e por carinho.', 3, { mult: { food: 1.6, materials: 1.6, knowledge: 1.6, culture: 1.6, military: 1.6, wealth: 1.6, energy: 1.6 } }, ['sinteticos', 'mente']),
+  ];
+  G.GENE = {};
+  G.GENES.forEach((x) => (G.GENE[x.id] = x));
+
+  // ======================= BANDEIRAS =======================
+  G.FLAG_COLORS = [
+    { id: 'gules', name: 'Goles', hex: '#b3261e' }, { id: 'sanguine', name: 'Sanguínea', hex: '#7c1f22' },
+    { id: 'tenne', name: 'Tanado', hex: '#c0651d' }, { id: 'or', name: 'Ouro', hex: '#d9a521', light: true },
+    { id: 'vert', name: 'Sinopla', hex: '#2f6a3c' }, { id: 'celeste', name: 'Celeste', hex: '#6fa3d1', light: true },
+    { id: 'azure', name: 'Blau', hex: '#1f4d96' }, { id: 'purpure', name: 'Púrpura', hex: '#5e2a78' },
+    { id: 'sable', name: 'Sable', hex: '#1d1b1a' }, { id: 'argent', name: 'Prata', hex: '#f1ede2', light: true },
+  ];
+  G.FLAG_PATTERNS = ['liso', 'faixa', 'pala', 'tribanda', 'triparte', 'cruz', 'nordica', 'diagonal', 'quartel', 'bordadura', 'chevron', 'sol'];
+
+  // ======================= LEGADO (desativado: o jogo não tem reinício) =======================
   G.LEGACY = [
     { id: 'memoria', name: 'Memória dos Ancestrais', desc: '+30% em toda a produção por nível.', base: 1, growth: 1.6, max: 50 },
     { id: 'fertilidade', name: 'Fertilidade', desc: '+20% de crescimento e +10% de capacidade por nível.', base: 1, growth: 1.7, max: 20 },

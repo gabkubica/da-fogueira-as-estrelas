@@ -16,8 +16,8 @@
   // ---------------- paletas ----------------
   const PAL = {
     parchment: {
-      deep: [196, 202, 184], shallow: [214, 216, 196], lake: [204, 210, 194], seaice: [236, 233, 222],
-      land: { grass: [233, 219, 178], plains: [237, 223, 183], forest: [226, 214, 170], jungle: [222, 211, 164], taiga: [228, 219, 184], savanna: [238, 219, 171], desert: [242, 226, 183], tundra: [232, 226, 204], hills: [230, 212, 168], mountain: [225, 205, 163], ice: [242, 238, 226] },
+      deep: [176, 188, 174], shallow: [204, 209, 188], lake: [196, 205, 188], seaice: [236, 233, 222],
+      land: { grass: [226, 213, 164], plains: [234, 219, 174], forest: [214, 205, 156], jungle: [207, 202, 148], taiga: [219, 213, 176], savanna: [236, 213, 158], desert: [243, 225, 177], tundra: [228, 224, 205], hills: [224, 203, 156], mountain: [216, 195, 151], ice: [242, 239, 231] },
       ink: [70, 54, 36], ripple: [120, 112, 92], shade: 0.5, grain: 9, coastW: 0.022,
     },
     atlas: {
@@ -55,9 +55,13 @@
   })();
 
   // ---------------- geração de terreno (fatiada no tempo) ----------------
-  function* terrainJob(world, styleId, W, Hh, out) {
+  function* terrainJob(world, styleId, Wf, Hf, out) {
+    // os pixels são calculados em meia resolução e ampliados; símbolos e rios são desenhados na resolução cheia
+    const half = out.half && Wf > 800;
+    const W = half ? Math.round(Wf / 2) : Wf, Hh = half ? Math.round(Hf / 2) : Hf;
     const P = PAL[styleId];
     const E = world.E, T = world.T, M = world.M, GW = world.GW, GH = world.GH, GS = H.GS;
+    const ES = smoothElev(world);
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = Hh;
     const ctx = cv.getContext('2d');
@@ -83,8 +87,9 @@
         const t = T[a] + (T[b] - T[a]) * fx + (T[c] - T[a]) * fy + (T[a] - T[b] - T[c] + T[dd]) * fx * fy;
         const hj = G.hash2(px, py, 3);
         const m = M[a] + (M[b] - M[a]) * fx + (M[c] - M[a]) * fy + (M[a] - M[b] - M[c] + M[dd]) * fx * fy + (hj - 0.5) * 0.035;
-        const ex = (e01 - e00) * (1 - fy) + (e11 - e10) * fy;
-        const ey = (e10 - e00) * (1 - fx) + (e11 - e01) * fx;
+        const s00 = ES[a], s01 = ES[b], s10 = ES[c], s11 = ES[dd];
+        const ex = (s01 - s00) * (1 - fy) + (s11 - s10) * fy;
+        const ey = (s10 - s00) * (1 - fx) + (s11 - s01) * fx;
         let r, g, bl;
         const p4 = (py * W + px) * 4;
         if (e <= 0) {
@@ -94,17 +99,6 @@
             r = P.shallow[0] + (P.deep[0] - P.shallow[0]) * k;
             g = P.shallow[1] + (P.deep[1] - P.shallow[1]) * k;
             bl = P.shallow[2] + (P.deep[2] - P.shallow[2]) * k;
-            // linhas de eco da costa
-            const dep = -e;
-            const lv = [0.03, 0.065, 0.11];
-            for (let li = 0; li < lv.length; li++) {
-              const dist = Math.abs(dep - lv[li]);
-              if (dist < 0.0042) {
-                const al = (1 - dist / 0.0042) * (0.5 - li * 0.14);
-                r += (P.ripple[0] - r) * al; g += (P.ripple[1] - g) * al; bl += (P.ripple[2] - bl) * al;
-              }
-            }
-            if (dep < P.coastW * 0.45) { const al = 1 - dep / (P.coastW * 0.45); r += (P.ink[0] - r) * al * 0.8; g += (P.ink[1] - g) * al * 0.8; bl += (P.ink[2] - bl) * al * 0.8; }
           }
         } else {
           if (mask) mask[p4 + 3] = 255;
@@ -112,19 +106,25 @@
           const col = LAND[bi] || P.land.plains;
           r = col[0]; g = col[1]; bl = col[2];
           // relevo sombreado (luz do noroeste)
-          let sh = (ex + ey) * 22 * P.shade;
-          if (sh > 0.6) sh = 0.6; else if (sh < -0.6) sh = -0.6;
+          let sh = (ex + ey) * 14 * P.shade;
+          if (sh > 0.38) sh = 0.38; else if (sh < -0.38) sh = -0.38;
           const hk = 1 + sh * 0.5 - e * 0.12 * P.shade;
           r *= hk; g *= hk; bl *= hk;
           if (styleId === 'atlas' && e > 0.72 && bi === TI.mountain) { const al = Math.min(1, (e - 0.72) * 5); r += (250 - r) * al; g += (250 - g) * al; bl += (250 - bl) * al; }
-          if (e < P.coastW) { const al = 1 - e / P.coastW; r += (P.ink[0] - r) * al; g += (P.ink[1] - g) * al; bl += (P.ink[2] - bl) * al; }
         }
         const gr = (G.hash2(px, py, 11) - 0.5) * P.grain;
         d[p4] = r + gr; d[p4 + 1] = g + gr; d[p4 + 2] = bl + gr; d[p4 + 3] = 255;
       }
-      if ((py & 15) === 15) yield py / Hh;
+      if ((py & 7) === 7) yield py / Hh;
     }
     ctx.putImageData(img, 0, 0);
+    let fin = cv, fctx = ctx;
+    if (half) {
+      fin = document.createElement('canvas'); fin.width = Wf; fin.height = Hf;
+      fctx = fin.getContext('2d');
+      fctx.imageSmoothingEnabled = true; fctx.imageSmoothingQuality = 'high';
+      fctx.drawImage(cv, 0, 0, Wf, Hf);
+    }
     if (mask) {
       const mc = document.createElement('canvas');
       mc.width = W; mc.height = Hh;
@@ -134,17 +134,88 @@
       mx.putImageData(mi, 0, 0);
       out.mask = mc;
     }
-    if (out.glyphs) drawGlyphs(ctx, world, styleId, W / H.MW);
-    if (out.glyphs) drawRivers(ctx, world, styleId, W / H.MW);
-    out.canvas = cv;
+    drawContours(fctx, world, styleId, Wf / H.MW);
+    if (out.glyphs) drawGlyphs(fctx, world, styleId, Wf / H.MW);
+    if (out.glyphs) drawRivers(fctx, world, styleId, Wf / H.MW);
+    out.canvas = fin;
     yield 1;
+  }
+
+  // elevação suavizada (para o relevo sombreado não ficar manchado)
+  function smoothElev(world) {
+    if (world.ES) return world.ES;
+    const { GW, GH } = world;
+    let A = Float32Array.from(world.E), B = new Float32Array(A.length);
+    for (let pass = 0; pass < 2; pass++) {
+      for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+        let s = 0;
+        for (let k = -2; k <= 2; k++) s += A[y * GW + ((x + k + GW) % GW)];
+        B[y * GW + x] = s / 5;
+      }
+      for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+        let s = 0;
+        for (let k = -2; k <= 2; k++) s += B[G.clamp(y + k, 0, GH - 1) * GW + x];
+        A[y * GW + x] = s / 5;
+      }
+    }
+    world.ES = A;
+    return A;
+  }
+  // linhas de contorno vetoriais (marching squares): costa nítida em qualquer zoom e ecos no mar
+  function contourPath(world, level, k) {
+    const { E, GW, GH } = world, GS = H.GS;
+    const p = new Path2D();
+    const seg = (x1, y1, x2, y2) => { p.moveTo(x1 * GS * k, y1 * GS * k); p.lineTo(x2 * GS * k, y2 * GS * k); };
+    for (let y = 0; y < GH - 1; y++) {
+      for (let x = 0; x < GW; x++) {
+        const x1 = (x + 1) % GW;
+        const a = E[y * GW + x] - level, b = E[y * GW + x1] - level, c = E[(y + 1) * GW + x1] - level, d = E[(y + 1) * GW + x] - level;
+        const idx = (a > 0 ? 8 : 0) | (b > 0 ? 4 : 0) | (c > 0 ? 2 : 0) | (d > 0 ? 1 : 0);
+        if (idx === 0 || idx === 15) continue;
+        const T = [x + a / (a - b), y], Rr = [x + 1, y + b / (b - c)], Bt = [x + d / (d - c), y + 1], L = [x, y + a / (a - d)];
+        switch (idx) {
+          case 1: case 14: seg(L[0], L[1], Bt[0], Bt[1]); break;
+          case 2: case 13: seg(Bt[0], Bt[1], Rr[0], Rr[1]); break;
+          case 3: case 12: seg(L[0], L[1], Rr[0], Rr[1]); break;
+          case 4: case 11: seg(T[0], T[1], Rr[0], Rr[1]); break;
+          case 6: case 9: seg(T[0], T[1], Bt[0], Bt[1]); break;
+          case 7: case 8: seg(L[0], L[1], T[0], T[1]); break;
+          case 5: seg(L[0], L[1], T[0], T[1]); seg(Bt[0], Bt[1], Rr[0], Rr[1]); break;
+          case 10: seg(T[0], T[1], Rr[0], Rr[1]); seg(L[0], L[1], Bt[0], Bt[1]); break;
+        }
+      }
+    }
+    return p;
+  }
+  function drawContours(ctx, world, st, k) {
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const P = PAL[st];
+    if (st !== 'night') {
+      const lv = st === 'parchment' ? [[-0.028, 0.5], [-0.06, 0.34], [-0.1, 0.2], [-0.15, 0.1]] : [[-0.03, 0.55], [-0.07, 0.3]];
+      for (const [L, al] of lv) {
+        ctx.strokeStyle = 'rgba(' + P.ripple.join(',') + ',' + al + ')';
+        ctx.lineWidth = (st === 'parchment' ? 0.42 : 0.5) * k;
+        ctx.stroke(contourPath(world, L, k));
+      }
+    }
+    const coast = contourPath(world, 0, k);
+    if (st === 'parchment') {
+      ctx.strokeStyle = 'rgba(70,54,36,0.18)'; ctx.lineWidth = 2.2 * k; ctx.stroke(coast);
+      ctx.strokeStyle = 'rgba(62,46,30,0.95)'; ctx.lineWidth = 0.62 * k; ctx.stroke(coast);
+    } else if (st === 'atlas') {
+      ctx.strokeStyle = 'rgba(60,70,80,0.75)'; ctx.lineWidth = 0.45 * k; ctx.stroke(coast);
+    } else {
+      ctx.strokeStyle = 'rgba(70,110,150,0.55)'; ctx.lineWidth = 0.4 * k; ctx.stroke(coast);
+    }
+    ctx.restore();
   }
 
   function runJob(gen, onDone, onProg, budget) {
     const step = () => {
       const t0 = performance.now();
       let r;
-      do { r = gen.next(); if (onProg && r.value != null) onProg(r.value); } while (!r.done && performance.now() - t0 < (budget || 14));
+      do { r = gen.next(); if (onProg && r.value != null) onProg(r.value); } while (!r.done && performance.now() - t0 < (budget || 40));
       if (r.done) onDone(); else requestAnimationFrame(step);
     };
     step();
@@ -169,9 +240,17 @@
       const j1 = G.hash2(i, 1, 5), j2 = G.hash2(i, 2, 5), j3 = G.hash2(i, 3, 5);
       for (const off of [0, cx < 12 ? H.MW : cx > H.MW - 12 ? -H.MW : null]) {
         if (off === null) continue;
-        const x = (cx + off + (j1 - 0.5) * 4) * k, y = (cy + (j2 - 0.5) * 3) * k;
-        if (t === TI.mountain) mountain(ctx, x, y, (6.5 + j3 * 3) * k, st, ink, world.helev[i]);
-        else if (t === TI.hills) hill(ctx, x, y, (4.2 + j3 * 1.5) * k, st, ink);
+        const x = (cx + off + (j1 - 0.5) * 6) * k, y = (cy + (j2 - 0.5) * 5) * k;
+        if (t === TI.mountain) {
+          const n = j3 > 0.62 ? 2 : 1;
+          for (let q = 0; q < n; q++) {
+            const ox = n === 2 ? (q ? 3.2 : -3) + (G.hash2(i, q, 31) - 0.5) * 2 : (G.hash2(i, 7, 31) - 0.5) * 3;
+            const oy = n === 2 ? (q ? 1.6 : -1.2) : (G.hash2(i, 8, 31) - 0.5) * 3;
+            const sz = n === 2 ? 4.6 + G.hash2(i, q, 33) * 2.4 : 5.4 + G.hash2(i, 9, 33) * 4.4;
+            mountain(ctx, x + ox * k, y + oy * k, sz * k, st, ink, world.helev[i]);
+          }
+        }
+        else if (t === TI.hills) { if (j3 < 0.55) hill(ctx, x, y, (3.4 + j3 * 1.2) * k, st, ink); }
         else if (t === TI.forest || t === TI.jungle) { const n = t === TI.jungle ? 3 : 2 + (j3 > 0.5 ? 1 : 0); for (let q = 0; q < n; q++) tree(ctx, x + (q - (n - 1) / 2) * 3.2 * k + (G.hash2(i, q, 9) - 0.5) * 2 * k, y + ((q & 1) ? 1.6 : -0.6) * k, 2.3 * k, st, ink, t === TI.jungle); }
         else if (t === TI.taiga) { for (let q = 0; q < 2; q++) conifer(ctx, x + (q - 0.5) * 3.4 * k, y + (q ? 1.2 : -0.8) * k, 2.6 * k, st, ink); }
         else if (t === TI.desert && st === 'parchment') { ctx.fillStyle = 'rgba(110,90,60,0.45)'; for (let q = 0; q < 6; q++) { ctx.beginPath(); ctx.arc(x + (G.hash2(i, q, 13) - 0.5) * 10 * k, y + (G.hash2(i, q, 17) - 0.5) * 8 * k, 0.32 * k, 0, 7); ctx.fill(); } }
@@ -262,13 +341,21 @@
     }
   }
 
+  // prévia pequena (tela de fundação)
+  MV.renderPreview = function (world, W, Hh, styleId) {
+    const out = { wantMask: false, glyphs: false };
+    const gen = terrainJob(world, styleId || 'parchment', W, Hh, out);
+    let r; do { r = gen.next(); } while (!r.done);
+    return out.canvas;
+  };
+
   // ---------------- construir/garantir estilos ----------------
   MV.ensureStyle = function (styleId, cb, onProg) {
     if (MV.styles[styleId]) { cb && cb(); return; }
     if (MV.building[styleId]) { MV.building[styleId].push(cb); return; }
     MV.building[styleId] = [cb];
     const W = Math.round(H.MW * MV.TS), Hh = Math.round(H.MH * MV.TS);
-    const out = { wantMask: !MV.mask, glyphs: true };
+    const out = { wantMask: !MV.mask, glyphs: true, half: true };
     runJob(terrainJob(G.game.world, styleId, W, Hh, out), () => {
       MV.styles[styleId] = out.canvas;
       if (out.mask) MV.mask = out.mask;
@@ -287,6 +374,7 @@
     MV.ensureStyle(st, () => {
       MV.prevStyle = instant ? null : MV.style;
       MV.style = st;
+      if (typeof document !== 'undefined') document.body.dataset.map = st;
       MV.fade = instant ? 1 : 0;
       MV.terrDirty = MV.fogDirty = MV.lightsDirty = true;
     });
@@ -363,14 +451,14 @@
       }
     }
     // recorta pela terra firme
-    if (MV.mask) { ctx.globalCompositeOperation = 'destination-in'; ctx.drawImage(MV.mask, 0, 0); ctx.globalCompositeOperation = 'source-over'; }
+    if (MV.mask) { ctx.globalCompositeOperation = 'destination-in'; ctx.drawImage(MV.mask, 0, 0, W, Hh); ctx.globalCompositeOperation = 'source-over'; }
     MV.terrDirty = false;
   }
 
   // ---------------- névoa (terra incógnita) ----------------
   function buildFog() {
     const g = G.game, ex = g.explored;
-    const k = 0.25;
+    const k = 0.6;
     const W = Math.ceil(H.MW * k), Hh = Math.ceil(H.MH * k);
     if (!MV.fog) { MV.fog = document.createElement('canvas'); MV.fog.width = W; MV.fog.height = Hh; }
     const ctx = MV.fog.getContext('2d');
@@ -381,9 +469,16 @@
       if (ex[i]) continue;
       any = true;
       const [cx, cy] = G.hexCenter(i);
-      for (const off of offsetsFor(cx)) { ctx.beginPath(); ctx.arc((cx + off) * k, cy * k, H.R * 1.25 * k, 0, Math.PI * 2); ctx.fill(); }
+      for (const off of offsetsFor(cx)) { ctx.beginPath(); ctx.arc((cx + off) * k, cy * k, H.R * 1.15 * k, 0, Math.PI * 2); ctx.fill(); }
     }
     MV.fogAny = any;
+    if (any && 'filter' in ctx) {
+      // borda suave e irregular, como tinta que não chegou ao papel
+      const tmp = document.createElement('canvas'); tmp.width = W; tmp.height = Hh;
+      const tx = tmp.getContext('2d');
+      tx.filter = 'blur(3px)'; tx.drawImage(MV.fog, 0, 0); tx.filter = 'none';
+      ctx.clearRect(0, 0, W, Hh); ctx.drawImage(tmp, 0, 0);
+    }
     if (any) {
       ctx.globalCompositeOperation = 'source-in';
       if (MV.style === 'night') ctx.fillStyle = '#04080e';
@@ -650,10 +745,11 @@
     if (st !== 'night' && MV.paper) {
       ctx.save();
       ctx.globalCompositeOperation = 'multiply';
-      ctx.globalAlpha = st === 'parchment' ? 0.55 : 0.32;
+      ctx.globalAlpha = st === 'parchment' ? 0.32 : 0.2;
       const pat = ctx.createPattern(MV.paper, 'repeat');
       const [sx, sy] = MV.toScreen(0, 0);
-      const m = new DOMMatrix([c.z * 1.2, 0, 0, c.z * 1.2, sx, sy]);
+      const pz = Math.min(c.z, 1.6) * 0.9;
+      const m = new DOMMatrix([pz, 0, 0, pz, sx, sy]);
       pat.setTransform(m);
       ctx.fillStyle = pat; ctx.fillRect(0, 0, W, Hh);
       ctx.restore();
@@ -715,7 +811,16 @@
         const [mx, my] = G.hexCenter(w.h);
         const [x, y] = MV.toScreen(mx + ox, my);
         if (x < -30 || y < -30 || x > MV.screenW + 30 || y > MV.screenH + 30) continue;
+        const stg = w.stage || 3;
+        if (stg < 3) { ctx.save(); ctx.globalAlpha = 0.45 + stg * 0.15; ctx.setLineDash([2, 2]); }
         wonderGlyph(ctx, x, y, 18 * zoomK, G.WONDER[id].glyph, st);
+        if (stg < 3) {
+          // andaimes
+          ctx.setLineDash([]); ctx.strokeStyle = st === 'night' ? 'rgba(255,220,160,0.8)' : 'rgba(60,40,20,0.8)'; ctx.lineWidth = 1;
+          const s2 = 9 * zoomK;
+          ctx.beginPath(); for (let q = -1; q <= 1; q++) { ctx.moveTo(x + q * s2, y + s2 * 0.6); ctx.lineTo(x + q * s2, y - s2 * 0.8); } ctx.moveTo(x - s2, y - s2 * 0.1); ctx.lineTo(x + s2, y - s2 * 0.1); ctx.moveTo(x - s2, y + s2 * 0.6); ctx.lineTo(x + s2, y - s2 * 0.8); ctx.stroke();
+          ctx.restore();
+        }
       }
     }
   }
@@ -840,7 +945,7 @@
 
   function drawLabels(ctx, offs) {
     const g = G.game, s = g.s, c = MV.cam, st = MV.style;
-    const serif = st === 'night' ? "'Inter', system-ui, sans-serif" : "'IM Fell English', 'EB Garamond', Georgia, serif";
+    const serif = st === 'night' ? "'IBM Plex Sans', system-ui, sans-serif" : "'IM Fell English', 'EB Garamond', Georgia, serif";
     const ink = st === 'night' ? 'rgba(230,236,245,0.92)' : '#3a2a18';
     const halo = st === 'night' ? 'rgba(0,0,0,0.7)' : st === 'atlas' ? 'rgba(245,238,220,0.85)' : 'rgba(236,224,190,0.85)';
     ctx.textAlign = 'center'; ctx.lineJoin = 'round';
@@ -981,9 +1086,28 @@
     const lc = document.createElement('canvas');
     lc.width = W; lc.height = Hh;
     const lx = lc.getContext('2d');
-    if (MV.lights && MV.style === 'night') lx.drawImage(MV.lights, 0, 0, W, Hh);
-    else {
-      for (const st of g.s.settlements) if (st.owner === 0) { const [cx, cy] = G.hexCenter(st.h); lx.fillStyle = 'rgba(255,200,120,0.9)'; lx.fillRect(cx * sx - 1, cy * sy - 1, 2, 2); }
+    // luzes finas, como fotos noturnas de satélite
+    const era = g.s.era;
+    for (let i = 0; i < H.N; i++) {
+      const o = own[i];
+      if (o < 0 || g.world.isWater(i)) continue;
+      if (era < 6 && o !== 0) continue;
+      const [cx, cy] = G.hexCenter(i);
+      const n = o === 0 ? (era >= 7 ? 3 : 1) : 1;
+      for (let q = 0; q < n; q++) {
+        if (G.hash2(i, q, 41) > (o === 0 ? 0.8 : 0.35)) continue;
+        const a2 = o === 0 ? 0.35 + G.hash2(i, q, 42) * 0.4 : 0.2;
+        lx.fillStyle = o === 0 ? 'rgba(255,190,110,' + a2 + ')' : 'rgba(210,220,255,' + a2 + ')';
+        lx.fillRect((cx + (G.hash2(i, q, 43) - 0.5) * 12) * sx, (cy + (G.hash2(i, q, 44) - 0.5) * 10) * sy, 1, 1);
+      }
+    }
+    for (const st of g.s.settlements) {
+      if (st.owner < 0) continue;
+      const [cx, cy] = G.hexCenter(st.h);
+      const p = g.settlementPop(st);
+      const r2 = Math.min(2.2, 0.6 + Math.log10(Math.max(10, p)) * 0.18);
+      lx.fillStyle = st.owner === 0 ? 'rgba(255,225,170,0.95)' : 'rgba(220,230,255,0.6)';
+      lx.beginPath(); lx.arc(cx * sx, cy * sy, r2, 0, 7); lx.fill();
     }
     MV.globeNight = lx.getImageData(0, 0, W, Hh).data;
     MV.globeW = W; MV.globeH = Hh;
@@ -1026,7 +1150,7 @@
       let lit = MV.gnx[p] * lx + MV.gny[p] * ly + MV.gnz[p] * lz;
       lit = G.clamp(lit * 1.6 + 0.15, 0, 1);
       const limb = 0.55 + 0.45 * MV.gnz[p];
-      const nl = (1 - lit) * 1.6;
+      const nl = (1 - lit) * 1.25;
       d[q] = Math.min(255, day[s4] * lit * limb + night[s4] * nl);
       d[q + 1] = Math.min(255, day[s4 + 1] * lit * limb + night[s4 + 1] * nl);
       d[q + 2] = Math.min(255, day[s4 + 2] * lit * limb + night[s4 + 2] * nl + 6);

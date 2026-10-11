@@ -1,35 +1,52 @@
-// Calibração sequencial: ajusta a escala de custo de cada era, em ordem, até a duração bater o alvo.
+// Calibração sequencial: para cada era, descobre se o gargalo é tecnologia ou território e ajusta o botão certo.
 const G = require('./dbg.js'); const run = require('./run.js');
 const fs = require('fs'), path = require('path');
-const TARGET = [6, 9, 12, 15, 18, 21, 24, 27, 30, 34, 42, 50];
-const seed = +(process.argv[2] || 101);
-const from = +(process.argv[3] || 0);
+const TARGET = [7, 10, 14, 17, 20, 23, 26, 29, 28, 32, 38, 45];
+const SEEDS = [101, 777];
+const LAND = [0.005, 0.014, 0.035, 0.065, 0.11, 0.24, 0.4, 0.62]; // fração de terra firme ao fim de cada era
+const from = +(process.argv[2] || 0);
 const B = G.BAL;
 function measure(e) {
   const before = TARGET.slice(0, e).reduce((a, b) => a + b, 0);
-  const lim = (before + TARGET[e] * 4) / 60 + 0.2;
-  const { eraT, t } = run(seed, lim, false, e === 11 ? null : e + 1);
-  if (eraT[e] == null) return { bad: true };
-  const end = e === 11 ? eraT[12] : eraT[e + 1];
-  return { dur: end == null ? (t - eraT[e]) * 2.5 : end - eraT[e], reached: end != null };
+  const lim = (before * 1.3 + TARGET[e] * 4) / 60 + 0.2;
+  let dur = 0, land = 0, lb = 0, n = 0;
+  for (const seed of SEEDS) {
+    const R = run(seed, lim, false, e === 11 ? null : e + 1);
+    if (R.eraT[e] == null) return { bad: true };
+    const end = e === 11 ? R.eraT[12] : R.eraT[e + 1];
+    const tt = R.techT[e], nt = R.needT[e];
+    if (e <= 7 && (nt == null || (tt != null && nt > tt + 5))) lb++;
+    dur += end == null ? (R.t - R.eraT[e]) * 2.5 : end - R.eraT[e];
+    land += G.game.landFrac(); n++;
+  }
+  return { dur: dur / n, land: land / n, landBound: lb * 2 > n, reached: true };
 }
+const scaleFrom = (e, f) => { for (let k = e; k < 12; k++) { B.SC[k] *= f; B.KC[k] *= f; } };
 for (let e = from; e < 12; e++) {
-  if (e > 0 && e > from) { const r = B.SC[e] / B.SC[e - 1]; }
-  for (let it = 0; it < 9; it++) {
+  if (e > 0 && B.SC[e] < B.SC[e - 1] * 3) scaleFrom(e, (B.SC[e - 1] * 3) / B.SC[e]);
+  for (let it = 0; it < 10; it++) {
     const m = measure(e);
     if (m.bad) { console.log('era', e, 'não alcançada; abortando'); process.exit(1); }
     const ratio = (TARGET[e] * 60) / Math.max(m.dur, 3);
-    console.log(`era ${e} it ${it}: ${(m.dur / 60).toFixed(1)} min${m.reached ? '' : ' (estimado)'} alvo ${TARGET[e]}  SC=${B.SC[e].toExponential(2)}`);
-    if (Math.abs(Math.log(ratio)) < 0.1) break;
+    console.log(`era ${e} it ${it}: ${(m.dur / 60).toFixed(1)} min${m.reached ? '' : ' (est.)'} alvo ${TARGET[e]} ${m.landBound ? '[terra]' : '[tec]'} SC=${B.SC[e].toExponential(2)} TC=${B.TC[e].toFixed(3)}`);
+    const lr = 1;
+    console.log(`      terra ${(m.land * 100).toFixed(1)}% (alvo ${e <= 7 ? (LAND[e] * 100).toFixed(1) : '-'}%)`);
+    if (Math.abs(Math.log(ratio)) < 0.1 && Math.abs(Math.log(lr)) < 0.2) break;
     const f = Math.pow(G.clamp(ratio, 1 / 40, 40), 0.85);
-    // ajusta esta era e empurra as seguintes junto (mantém as proporções)
-    for (let k = e; k < 12; k++) { B.SC[k] *= f; B.KC[k] *= f; }
+    if (e <= 3 && Math.abs(Math.log(lr)) >= 0.2) B.TC[e] = G.clamp(B.TC[e] * Math.pow(lr, 1.2), 0.002, 200);
+    if (m.landBound) B.TC[e] = G.clamp(B.TC[e] * f, 0.002, 200);
+    else {
+      const floor = e > 0 ? B.SC[e - 1] * 3 : 0;
+      if (B.SC[e] * f >= floor) scaleFrom(e, f);
+      else { const f2 = floor / B.SC[e]; scaleFrom(e, f2); for (let k = e; k < 12; k++) B.KC[k] *= f / f2; }
+    }
   }
 }
-const fmt = (a) => '[' + a.map((x) => Number(x.toPrecision(3)).toExponential(2).replace('e+', 'e')).join(', ') + ']';
-console.log('SC:', fmt(B.SC)); console.log('KC:', fmt(B.KC));
+const fmt = (a) => '[' + a.map((x) => Number(x.toPrecision(3)).toExponential(2).replace('e+', 'e').replace('e0', '').replace('e-', 'e-')).join(', ') + ']';
+const fmt2 = (a) => '[' + a.map((x) => +x.toPrecision(3)).join(', ') + ']';
+console.log('SC:', fmt(B.SC)); console.log('KC:', fmt(B.KC)); console.log('TC:', fmt2(B.TC));
 const p = path.join(__dirname, '../js/data.js');
 let d = fs.readFileSync(p, 'utf8');
-d = d.replace(/SC: \[[^\]]*\]/, 'SC: ' + fmt(B.SC)).replace(/KC: \[[^\]]*\]/, 'KC: ' + fmt(B.KC));
+d = d.replace(/SC: \[[^\]]*\]/, 'SC: ' + fmt(B.SC)).replace(/KC: \[[^\]]*\]/, 'KC: ' + fmt(B.KC)).replace(/TC: \[[^\]]*\]/, 'TC: ' + fmt2(B.TC));
 fs.writeFileSync(p, d);
 console.log('gravado');

@@ -36,7 +36,7 @@
   game.newState = function (o) {
     const leg = o.legacy || { points: 0, levels: {}, cycles: 0, earned: 0 };
     return {
-      v: 1, seed: o.seed, civName: o.civName, color: o.color, voice: o.voice,
+      v: 2, seed: o.seed, civName: o.civName, color: o.color, voice: o.voice, flag: o.flag || null, genes: {},
       time: 0, savedAt: Date.now(), era: 0, year: G.ERAS[0].y0,
       pop: 12, res: { food: 40, materials: 15, knowledge: 0, culture: 0, military: 0, wealth: 0, energy: 0 },
       weights: { materials: 5, knowledge: 3, culture: 2, military: 1, wealth: 3, energy: 3 },
@@ -64,6 +64,7 @@
     game.campaigns = [];
     game.acc = { sec: 0, creep: 0, found: 0, auto: 0 };
     if (!saved) setupNewWorld();
+    else (s.rivals || []).forEach((rv) => { rv.partBusy = false; if (rv.campaign && rv.alive) rv.campaign = null; });
     game.rebuildCounts();
     game.gal = null;
     if (s.era >= 10) game.initGalaxy(saved && saved.gown);
@@ -122,13 +123,17 @@
     const fl = { seaRange: 0, seaAdd: 0, range: 0, rangeAdd: 0, overseasDiscount: 0, spaceDiscount: 0, diplomacy: 1 };
     let slots = 0;
     const govs = new Set(['anciaos']), pols = new Set(G.START_POLICIES);
-    const applyEff = (eff) => {
+    let bodyCap = 1;
+    const sc = (v, f) => 1 + (v - 1) * f;
+    const applyEff = (eff, f) => {
       if (!eff) return;
-      if (eff.mult) for (const k in eff.mult) mult[k] *= eff.mult[k];
-      if (eff.cap) capMult *= eff.cap;
-      if (eff.growth) growth *= eff.growth;
-      for (const m in mods) if (eff[m]) mods[m] *= eff[m];
-      if (eff.flags) for (const f in eff.flags) {
+      if (f == null) f = 1;
+      if (eff.mult) for (const k in eff.mult) mult[k] *= sc(eff.mult[k], f);
+      if (eff.cap) capMult *= sc(eff.cap, f);
+      if (eff.growth) growth *= sc(eff.growth, f);
+      if (eff.bodyCap) bodyCap *= sc(eff.bodyCap, f);
+      for (const m in mods) if (eff[m]) mods[m] *= sc(eff[m], f);
+      if (eff.flags && f >= 1) for (const f in eff.flags) {
         const v = eff.flags[f];
         if (f === 'seaRange' || f === 'range' || f === 'overseasDiscount' || f === 'spaceDiscount') fl[f] = Math.max(fl[f], v);
         else if (f === 'seaAdd' || f === 'rangeAdd') fl[f] += v;
@@ -153,17 +158,23 @@
     }
     applyEff(G.GOV[s.gov] && G.GOV[s.gov].eff);
     s.policies.forEach((p) => applyEff(G.POLICY[p] && G.POLICY[p].eff));
-    for (const id in s.wonders) applyEff(G.WONDER[id] && G.WONDER[id].eff);
+    let glory = 0;
+    for (const id in s.wonders) {
+      const st = s.wonders[id].stage || 3;
+      applyEff(G.WONDER[id] && G.WONDER[id].eff, st / 3);
+      if (st >= 3) glory++;
+    }
+    for (const id in s.genes) applyEff(G.GENE[id] && G.GENE[id].eff);
     for (const k in s.perm) mult[k] *= s.perm[k];
     G.BODIES.forEach((b) => {
       const st = s.space.bodies[b.id] || 0;
       if (st >= 3) {
         const lvl = st - 2;
         if (b.eff.mult) for (const k in b.eff.mult) mult[k] *= 1 + (b.eff.mult[k] - 1) * lvl;
-        if (b.eff.cap) spaceCap += b.eff.cap * lvl;
+        if (b.eff.cap) spaceCap += b.eff.cap * lvl * bodyCap;
       }
     });
-    let global = 1 + G.MILESTONE_BONUS * Object.keys(s.milestones).length;
+    let global = (1 + G.MILESTONE_BONUS * Object.keys(s.milestones).length) * (1 + G.GLORY_BONUS * glory);
     global *= 1 + 0.3 * game.lvl('memoria');
     growth *= 1 + 0.2 * game.lvl('fertilidade');
     capMult *= 1 + 0.1 * game.lvl('fertilidade');
@@ -180,7 +191,7 @@
     mods.space *= 1 - fl.spaceDiscount;
     mods.overseas *= 1 - fl.overseasDiscount;
     RES.forEach((k) => { mult[k] = (1 + add[k]) * mult[k] * global; });
-    game.d = { mult, add, global, capMult: (1 + capAdd) * capMult, growth, mods, fl, slots: Math.min(7, slots), govs, pols, spaceCap };
+    game.d = { glory, mult, add, global, capMult: (1 + capAdd) * capMult, growth, mods, fl, slots: Math.min(7, slots), govs, pols, spaceCap };
     game.emit('recalc');
   };
 
@@ -198,9 +209,11 @@
     return m;
   };
 
+  // produtividade agrícola com ganhos decrescentes: a fração de agricultores cai aos poucos, como na história
+  game.foodPer = () => G.SECTOR.food.base * Math.pow(game.d.mult.food, 0.35) * game.buffMult('food');
   game.fractions = function () {
     const s = game.s, d = game.d;
-    const fpw = G.SECTOR.food.base * d.mult.food * game.buffMult('food');
+    const fpw = game.foodPer();
     const ff = G.clamp((BAL.eat * (1 + s.margin)) / fpw, 0.004, 0.97);
     const fr = { food: ff };
     const unl = G.SECTORS.filter((x) => x.id !== 'food' && s.era >= x.unlock);
@@ -219,7 +232,7 @@
     const fr = game.fractions();
     const gross = {}, net = {};
     G.SECTORS.forEach((x) => {
-      gross[x.id] = s.pop * fr[x.id] * x.base * d.mult[x.id] * game.buffMult(x.id);
+      gross[x.id] = x.id === 'food' ? s.pop * fr.food * game.foodPer() : s.pop * fr[x.id] * x.base * d.mult[x.id] * game.buffMult(x.id);
       net[x.id] = gross[x.id];
     });
     net.food -= s.pop * BAL.eat;
@@ -293,16 +306,20 @@
     game._sc = a * Math.pow(b / a, frac); game._scT = s.time; game._scE = e;
     return game._sc;
   };
+  // potencial produtivo: o que 30% do povo produziria neste setor (independe da divisão de trabalho)
+  game.pot = (k) => Math.max(1e-9, game.s.pop * 0.3 * G.SECTOR[k].base * game.d.mult[k]);
+  game.landT = (n) => Math.pow(1 + n / 40, 0.6);
   game.tileCostVal = function (h) {
     const s = game.s, w = game.world, d = game.d;
     const t = G.TERRAIN[G.TERR[w.terr[h]]];
-    let c = game.scale() * BAL.TC[s.era] * (t.cost || 1) * Math.pow(Math.max(1, game.ownedLand) / 8, BAL.tileExp) * d.mods.tiles;
+    // c = segundos de capacidade produtiva
+    let c = BAL.TC[s.era] * (t.cost || 1) * game.landT(game.ownedLand) * d.mods.tiles;
     const f = game.frontier();
     if (f.mark[h] === 2) c *= 1.6 * d.mods.overseas;
     return c;
   };
-  game.tileCost = function (h) { const c = game.tileCostVal(h); return { food: c * 1.5, materials: c }; };
-  game.tileCultureCost = (h) => game.tileCostVal(h) * 0.35;
+  game.tileCost = function (h) { const c = game.tileCostVal(h); return { food: c * game.s.pop * 0.15 * BAL.eat, materials: c * game.pot('materials') }; };
+  game.tileCultureCost = (h) => game.tileCostVal(h) * game.pot('culture') * 2;
 
   game.bestTile = function (byCulture) {
     const f = game.frontier();
@@ -401,8 +418,9 @@
       let qi = 0;
       while (qi < q.length) {
         const c = q[qi++];
-        if (!ex[c]) { ex[c] = 1; changed = true; }
-        if (dist[c] >= r) continue;
+        const rr = r + Math.floor(G.hash2(c, 5, 77) * 3) - 1;
+        if (dist[c] <= rr && !ex[c]) { ex[c] = 1; changed = true; }
+        if (dist[c] >= r + 1) continue;
         for (let k = 0; k < 6; k++) {
           const nb = G.NB[c * 6 + k];
           if (nb >= 0 && dist[nb] < 0) { dist[nb] = dist[c] + 1; q.push(nb); }
@@ -455,25 +473,40 @@
   };
   game.rivalStrength = function (id) {
     const s = game.s, n = game.rivalTiles[id] || 0;
-        return Math.pow(n, 1.12) * game.scale() * BAL.RIV;
+        return n * BAL.TC[s.era] * game.landT(game.ownedLand) * BAL.RIV;
   };
   game.rivalCost = function (id, mode) {
     const base = game.rivalStrength(id), d = game.d;
-    if (mode === 'military') return { military: base * d.mods.conquest };
-    return { culture: base * 1.3 * d.mods.absorb };
+    if (mode === 'military') return { military: base * game.pot('military') * d.mods.conquest };
+    return { culture: base * 1.6 * game.pot('culture') * d.mods.absorb };
   };
   game.canAnnex = function (id) {
     const rv = game.s.rivals[id - 1];
     return rv && rv.alive && !rv.campaign && game.frontier().touch.has(id) && game.s.era >= 1;
   };
-  game.annex = function (id, mode) {
-    if (!game.canAnnex(id)) return false;
-    const cost = game.rivalCost(id, mode);
+  // fronteira: só a faixa mais próxima de nós
+  game.partCount = (id) => { const n = game.rivalTiles[id] || 0; return Math.min(n, Math.max(4, Math.ceil(n * 0.2))); };
+  game.rivalPartCost = function (id, mode) {
+    const n = game.rivalTiles[id] || 1, k = game.partCount(id);
+    const full = game.rivalCost(id, mode), out = {};
+    for (const r in full) out[r] = (full[r] * k / n) * 1.25;
+    return out;
+  };
+  game.annexPart = function (id, mode) {
+    if (!game.canAnnex(id) || game.s.rivals[id - 1].partBusy) return false;
+    const k = game.partCount(id);
+    if (k >= (game.rivalTiles[id] || 0)) return game.annex(id, mode);
+    const cost = game.rivalPartCost(id, mode);
     if (!afford(cost)) return false;
     pay(cost);
     const rv = game.s.rivals[id - 1];
-    rv.campaign = mode;
-    // ordem de anexação: da nossa fronteira para dentro
+    rv.partBusy = true;
+    game.campaigns.push({ id, order: annexOrder(id).slice(0, k), i: 0, mode, part: true });
+    game.log(mode === 'military' ? `Nossas tropas avançam sobre a fronteira da ${game.rivalName(rv)}.` : `Aldeias da fronteira da ${game.rivalName(rv)} passam a se considerar parte do nosso povo.`, mode === 'military' ? 'war' : 'info');
+    game.emit('rivals');
+    return true;
+  };
+  function annexOrder(id) {
     const own = game.owner, N = G.HEX.N;
     const dist = new Int32Array(N).fill(-1);
     const q = [];
@@ -491,6 +524,16 @@
       }
     }
     for (let i = 0; i < N; i++) if (own[i] === id && dist[i] < 0) order.push(i);
+    return order;
+  }
+  game.annex = function (id, mode) {
+    if (!game.canAnnex(id)) return false;
+    const cost = game.rivalCost(id, mode);
+    if (!afford(cost)) return false;
+    pay(cost);
+    const rv = game.s.rivals[id - 1];
+    rv.campaign = mode;
+    const order = annexOrder(id);
     game.campaigns.push({ id, order, i: 0, mode });
     const nm = game.rivalName(rv);
     game.log(mode === 'military'
@@ -705,8 +748,12 @@
   };
 
   // ---------- maravilhas ----------
-  game.wonderCost = function (w) {
-    const sc = BAL.SC[w.era] * w.c * 9 * game.d.mods.build;
+  game.WSTAGE = [0.25, 0.33, 0.42];
+  game.WSTAGE_NAMES = ['Fundação', 'Construção', 'Conclusão'];
+  game.wonderStage = (id) => (game.s.wonders[id] ? game.s.wonders[id].stage || 3 : 0);
+  game.wonderCost = function (w, stage) {
+    if (stage == null) stage = game.wonderStage(w.id);
+    const sc = BAL.SC[w.era] * w.c * 9 * game.d.mods.build * game.WSTAGE[Math.min(2, stage)];
     const c = { materials: sc, culture: sc * 0.25 };
     if (w.era >= 2) c.wealth = sc * 0.4;
     if (w.era >= 6) c.energy = sc * 0.3;
@@ -714,7 +761,7 @@
   };
   game.wonderState = function (w) {
     const s = game.s;
-    if (s.wonders[w.id]) return 'done';
+    if (game.wonderStage(w.id) >= 3) return 'done';
     if (w.era > s.era) return 'future';
     if (!game.needMet(w.need)) return 'need';
     return 'open';
@@ -725,14 +772,19 @@
     const c = game.wonderCost(w);
     if (!afford(c)) return false;
     pay(c);
-    const rec = {};
-    if (!w.where) rec.h = placeWonder();
-    rec.year = game.s.year;
-    game.s.wonders[id] = rec;
+    let rec = game.s.wonders[id];
+    if (!rec) {
+      rec = { stage: 0 };
+      if (!w.where) rec.h = placeWonder();
+      game.s.wonders[id] = rec;
+    }
+    rec.stage = (rec.stage || 0) + 1;
+    if (rec.stage >= 3) rec.year = game.s.year;
     game.recalc();
     game.dirty.frontier = true;
-    game.log(`Concluída a ${w.name}. ${w.desc}`, 'wonder');
-    game.emit('wonder', id);
+    if (rec.stage === 1) game.log(`Começam as obras: ${w.name}.`, 'wonder');
+    else if (rec.stage >= 3) game.log(`Concluída: ${w.name}. ${w.desc}`, 'wonder');
+    game.emit('wonder', { id, stage: rec.stage });
     return true;
   };
   function placeWonder() {
@@ -749,6 +801,39 @@
     }
     return best;
   }
+
+  // ---------- evolução humana ----------
+  game.geneCost = (x) => ({ knowledge: BAL.KC[x.era] * x.c * 2.2 * game.d.mods.tech, food: BAL.SC[x.era] * x.c * 3 });
+  game.geneState = function (x) {
+    const s = game.s;
+    if (s.genes[x.id]) return 'done';
+    if (!game.d.fl.genes || x.era > s.era) return 'future';
+    if (!x.req.every((r) => s.genes[r])) return 'locked';
+    return 'open';
+  };
+  game.buyGene = function (id) {
+    const x = G.GENE[id];
+    if (!x || game.geneState(x) !== 'open') return false;
+    const c = game.geneCost(x);
+    if (!afford(c)) return false;
+    pay(c);
+    game.s.genes[id] = 1;
+    game.recalc();
+    game.log(`Evolução humana: ${x.name}. ${x.desc}`, 'tech');
+    game.emit('genes');
+    return true;
+  };
+
+  // ---------- nome do império ----------
+  game.empireTitle = () => {
+    const s = game.s;
+    if (s.customTitle) return s.customTitle;
+    const t = (G.GOV[s.gov] && G.GOV[s.gov].title) || 'Povo';
+    // um povo que nunca mudou de governo ainda cresce: o título acompanha a era
+    if (t === 'Tribo' && s.era >= 2) return s.era <= 4 ? 'Reino' : s.era <= 6 ? 'Nação' : s.era <= 7 ? 'República' : 'Federação';
+    return t;
+  };
+  game.empireName = () => game.empireTitle() + ' de ' + game.s.civName;
 
   // ---------- sistema solar ----------
   game.bodyEra = function (b) {
@@ -1075,8 +1160,9 @@
   }
 
   // ---------- mutirão ----------
-  game.effortCd = () => [6, 12, 20, 25, 30][Math.min(4, game.s.era)];
-  game.effortAmt = (k) => Math.max(game.minAmt() * (k === 'knowledge' || k === 'culture' || k === 'military' ? 0.35 : 1), 30 * (game.gross[k] || 0));
+  // mutirão: um empurrão de ~1 minuto de produção, a cada 45 segundos (não exige cliques frenéticos)
+  game.effortCd = () => 45;
+  game.effortAmt = (k) => Math.max(game.scale() * (k === 'food' || k === 'materials' ? 0.12 : 0.04), 60 * (game.gross[k] || 0));
   game.effort = function (k) {
     const s = game.s;
     if (s.cd.effort > s.time) return false;
@@ -1160,7 +1246,8 @@
       }
       if (c.i >= c.order.length) {
         // sobras (terras conquistadas pelo rival durante a campanha)
-        for (let h = 0; h < game.owner.length; h++) if (game.owner[h] === c.id) game.setOwner(h, 0);
+        if (!c.part) for (let h = 0; h < game.owner.length; h++) if (game.owner[h] === c.id) game.setOwner(h, 0);
+        else { const rv = game.s.rivals[c.id - 1]; if (rv) rv.partBusy = false; }
         c.done = true;
       }
       game.emit('territory');

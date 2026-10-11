@@ -102,6 +102,19 @@
   };
 
   G.genWorld = function (seed) {
+    // rejeita supercontinentes: o mundo precisa ter oceanos a atravessar
+    let best = null;
+    for (let k = 0; k < 6; k++) {
+      const wd = genOnce(seed + k * 7919);
+      wd.seed = seed;
+      const land = wd.conts.reduce((a, b) => a + b, 0);
+      const big = Math.max(...wd.conts);
+      if (!best || big / land < best.r) best = { wd, r: big / land };
+      if (big / land <= 0.5) return wd;
+    }
+    return best.wd;
+  };
+  function genOnce(seed) {
     const r = G.rng(seed);
     const n1 = G.makeNoise(seed + 11), n2 = G.makeNoise(seed + 23), n3 = G.makeNoise(seed + 37), n4 = G.makeNoise(seed + 41), n5 = G.makeNoise(seed + 59);
     const GN = GW * GH;
@@ -114,13 +127,13 @@
       for (let gx = 0; gx < GW; gx++) {
         const ang = (gx / GW) * TAU;
         const cx = Math.cos(ang), cz = Math.sin(ang);
-        const wx = G.fbm(n2, cx * 1.3 + ox, ny * 1.3, cz * 1.3, 3) * 0.45;
-        const wy = G.fbm(n2, cx * 1.3, ny * 1.3 + oy, cz * 1.3 + 7, 3) * 0.45;
-        let e = G.fbm(n1, (cx + wx) * 0.85, (ny + wy) * 0.85, (cz + wx) * 0.85, 6, 2.1, 0.5);
+        const wx = G.fbm(n2, cx * 1.1 + ox, ny * 1.1, cz * 1.1, 3) * 0.38;
+        const wy = G.fbm(n2, cx * 1.1, ny * 1.1 + oy, cz * 1.1 + 7, 3) * 0.38;
+        let e = G.fbm(n1, (cx + wx) * 0.6, (ny + wy) * 0.6, (cz + wx) * 0.6, 6, 2.1, 0.46);
         const rr = 1 - Math.abs(G.fbm(n3, cx * 2.2, ny * 2.2, cz * 2.2, 4, 2, 0.5));
         e += Math.pow(rr, 4) * 0.32 * G.smooth(G.clamp((e + 0.05) / 0.25, 0, 1));
         const pole = Math.max(0, Math.abs(lat) - 0.7) / 0.3;
-        e -= pole * pole * 0.35;
+        e -= pole * pole * 0.7;
         const i = gy * GW + gx;
         raw[i] = e;
         M[i] = G.clamp(0.5 + G.fbm(n4, cx * 1.6, ny * 1.6, cz * 1.6, 4) * 1.1, 0, 1);
@@ -301,5 +314,5 @@
       isWater, start, rivals,
       landTotal: (() => { let n = 0; for (let i = 0; i < N; i++) if (!isWater(i) && terr[i] !== TI.ice) n++; return n; })(),
     };
-  };
+  }
 })();
