@@ -622,11 +622,14 @@
   game.buildingCost = function (id, n) {
     const b = G.BUILDING[id];
     if (n == null) n = game.s.buildings[id] || 0;
-    const base = b.era === 0 ? BAL.SC[0] * 0.6 : BAL.SC[b.era - 1] * BAL.BF;
-    const sc = base * b.c * Math.pow(BAL.buildGrowth, n) * game.d.mods.build;
-    const c = { materials: sc };
-    if (b.era >= 2) c.wealth = sc * BAL.RW[b.era] * 0.25;
-    if (b.era >= 7) c.energy = sc * BAL.RE[b.era] * 0.3;
+    // a 1ª construção da era custa ~1 minuto da produção que o império tinha quando a era começou;
+    // cada nova unidade da mesma linha custa 20% a mais
+    const k = b.c * Math.pow(BAL.buildGrowth, n) * game.d.mods.build;
+    const ep = game.eraPot();
+    if (b.era === 0 || !ep) return { materials: BAL.SC[0] * 0.6 * k };
+    const c = { materials: ep.m * BAL.BSECS * k };
+    if (b.era >= 2) c.wealth = Math.max(1, ep.w) * BAL.BSECS * 0.3 * k;
+    if (b.era >= 7) c.energy = Math.max(1, ep.en) * BAL.BSECS * 0.3 * k;
     return c;
   };
   // a versão mais avançada da linha disponível nesta era
@@ -637,6 +640,12 @@
     return cur;
   };
   game.lineNext = function (line) { return (G.LINES[line] || []).find((b) => b.era > game.s.era) || null; };
+  game.eraPot = function () {
+    const s = game.s;
+    if (s.era === 0) return null;
+    if (!s.eraPot || s.eraPot.era !== s.era) s.eraPot = { era: s.era, m: game.pot('materials'), w: game.pot('wealth'), en: game.pot('energy') };
+    return s.eraPot;
+  };
   game.buildingUnlocked = (b) => b.era <= game.s.era && game.lineCurrent(b.line) === b;
   game.buy = function (id, count) {
     const b = G.BUILDING[id];
@@ -722,6 +731,8 @@
     if (e <= 7) s.rivals.forEach((rv) => { if (rv.alive && !rv.campaign) growRival(rv.id, 2 + Math.round((game.rivalTiles[rv.id] || 0) * 0.35), false); });
     if (e === 10) { game.initGalaxy(); }
     game.recalc();
+    s.eraPot = null;
+    game.eraPot();
     game.dirty.frontier = true;
     game.updateExplore();
     game.emit('era', e);

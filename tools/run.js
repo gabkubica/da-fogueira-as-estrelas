@@ -13,7 +13,7 @@ module.exports = function run(seed, maxH, log, stopEra) {
     if (t >= next) {
       botStep(s); next = t + 1;
       const e = s.era, key = G.TECHS.find((x) => x.era === e && x.eff.era);
-      if (incT[e] == null && eraT[e] != null && t >= eraT[e] + 90) incT[e] = { m: game.gross.materials, w: game.gross.wealth, en: game.gross.energy };
+      if (incT[e] == null && eraT[e] != null && t >= eraT[e] + 90) { const fb = game.lineCurrent('food'); incT[e] = { m: game.gross.materials, w: game.gross.wealth, en: game.gross.energy, b0: fb ? game.buildingCost(fb.id, 0).materials : 0 }; }
       if (key) {
         if (techT[e] == null && game.eraTechs(e).every((x) => x === key || s.techs[x.id])) techT[e] = t;
         if (needT[e] == null && game.needMet(key.eff.need)) needT[e] = t;
