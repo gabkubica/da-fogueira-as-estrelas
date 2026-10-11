@@ -319,7 +319,8 @@
     if (f.mark[h] === 2) c *= 1.6 * d.mods.overseas;
     return c;
   };
-  game.tileCost = function (h) { const c = game.tileCostVal(h); return { food: c * game.s.pop * 0.15 * BAL.eat, materials: c * game.pot('materials') }; };
+  // a expansão é paga principalmente com alimento (a reserva); materiais ficam para as obras
+  game.tileCost = function (h) { const c = game.tileCostVal(h); return { food: c * game.s.pop * 0.3 * BAL.eat, materials: c * game.pot('materials') * 0.3 }; };
   game.tileCultureCost = (h) => game.tileCostVal(h) * game.pot('culture') * 2;
 
   game.bestTile = function (byCulture) {

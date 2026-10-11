@@ -6,16 +6,16 @@
   // ======================= EQUILÍBRIO =======================
   // Escalas de custo por era. Ajustadas por simulação (tools/sim.js).
   G.BAL = {
-    SC: [6.06e1, 3.44e4, 4.20e6, 1.93e8, 1.81e9, 3.04e10, 6.86e11, 1.90e13, 7.31e16, 2.55e23, 1.13e28, 3.40e28],
-    KC: [4.85e1, 2.55e4, 2.74e6, 1.07e8, 9.09e8, 1.52e10, 3.04e11, 7.62e12, 2.92e16, 1.02e23, 8.69e26, 2.81e26],
-    TC: [18, 7.24, 5.54, 4.34, 3.16, 1.93, 0.773, 0.479, 0.1, 0.1, 0.1, 0.1], // segundos de capacidade produtiva por terra (ritmo da expansão por era)
-    BC: [1, 1, 1, 1, 1, 1, 1, 1, 0.219, 0.00073, 0.00737, 0.0004], // fator de custo de corpos celestes e sistemas estelares
-    BSECS: 60, // a 1ª construção de cada era custa ~60 s da produção (de 30% do povo) no começo da era
+    SC: [7.84e1, 4.89e4, 6.56e6, 4.62e8, 4.33e9, 7.28e10, 1.64e12, 4.55e13, 1.75e17, 2.57e23, 7.94e27, 2.38e28],
+    KC: [6.28e1, 3.62e4, 4.28e6, 2.56e8, 2.18e9, 3.64e10, 7.28e11, 1.82e13, 6.99e16, 1.03e23, 6.11e26, 4.43e25],
+    TC: [18, 7.24, 5.54, 4.34, 3.61, 1.73, 0.748, 0.479, 0.1, 0.1, 0.1, 0.1], // segundos de capacidade produtiva por terra (ritmo da expansão por era)
+    BC: [1, 1, 1, 1, 1, 1, 1, 1, 0.219, 0.00073, 0.00737, 0.0001], // fator de custo de corpos celestes e sistemas estelares
+    BSECS: 40, // a 1ª construção de cada era custa ~60 s da produção (de 30% do povo) no começo da era
     // quanto o império produz de riqueza e energia para cada unidade de materiais (por era);
     // os custos nesses recursos seguem essa proporção, para nenhum deles virar gargalo eterno
-    RW: [0, 0, 0.0191, 0.0399, 0.0538, 0.293, 0.119, 0.656, 0.358, 0.188, 0.0134, 0.000754],
-    RE: [0, 0, 0, 0, 0, 0, 0.00126, 0.0202, 0.0402, 0.0356, 0.427, 0.998],
-    AF: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.0737, 0.004], // fator de custo da diplomacia e guerra com alienígenas
+    RW: [0, 0, 0.0187, 0.045, 0.0758, 0.329, 0.268, 0.717, 0.414, 0.289, 0.0176, 0.000689],
+    RE: [0, 0, 0, 0, 0, 0, 0.000981, 0.0162, 0.0362, 0.0475, 0.128, 3.9],
+    AF: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.0737, 0.001], // fator de custo da diplomacia e guerra com alienígenas
     RIV: 0.3, // anexar um povo custa ~0,6 terra por território dele, pago em força ou cultura
     capPerTile: [4, 16, 55, 160, 420, 1000, 3800, 30000, 60000, 90000, 120000, 150000],
     bonusBase: 0.12, bonusGrowth: 1.7,
