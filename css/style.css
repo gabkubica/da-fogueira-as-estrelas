@@ -615,3 +615,7 @@ body.panel-collapsed #toasts { right: 16px; }
 .slot .swap:hover { text-decoration: underline; }
 .btn.wide-sm { width: 100%; margin-top: 8px; }
 .prow.active { opacity: .7; }
+
+.effort .btn.on { border-color: var(--accent); color: var(--accent); background: rgba(214,162,78,.12); }
+.btn.auto-ef { margin: 2px 0 8px; }
+.btn.auto-ef.on { border-color: var(--accent); color: var(--accent); }

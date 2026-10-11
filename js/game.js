@@ -1196,7 +1196,15 @@
     if (s.cd.effort > s.time) return false;
     s.res[k] += game.effortAmt(k);
     s.cd.effort = s.time + game.effortCd();
+    s.lastEffort = k;
     return true;
+  };
+  // mutirão automático: convoca sozinho, sempre no recurso escolhido
+  game.autoEffort = function () {
+    const s = game.s, k = s.autoEffort;
+    if (!k || s.cd.effort > s.time) return;
+    if (s.era < G.SECTOR[k].unlock) return;
+    game.effort(k);
   };
 
   // ---------- marcos ----------
@@ -1248,6 +1256,7 @@
     if (s.buffs.length) s.buffs = s.buffs.filter((b) => b.until > s.time);
     game.rates();
     for (const k of RES) s.res[k] += game.rate[k] * dt;
+    game.autoEffort();
     if (s.res.food < 0) { s.pop = Math.max(1, s.pop * (1 - Math.min(0.5, 0.03 * dt))); s.res.food = 0; }
     const C = game.capacity();
     if (s.pop < C) {

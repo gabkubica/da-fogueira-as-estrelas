@@ -282,8 +282,9 @@
     }).join('');
     h += sec('Divisão do trabalho', `<p class="hint">Defina a prioridade de cada ofício. Quem não planta, trabalha nos outros.</p>${rows}`);
     // mutirão
-    const btns = G.SECTORS.filter((x) => s.era >= x.unlock).map((x) => `<button class="btn sm" data-act="effort" data-id="${x.id}" id="${bind(() => ({ d: game.s.cd.effort > game.s.time }))}" data-tip="+${RN[x.id]}">${G.ICON[x.id]}<span id="${bind(() => G.fmt(game.effortAmt(x.id)))}"></span></button>`).join('');
-    h += sec('Mutirão', `<p class="hint">Convoque o povo para um esforço concentrado.</p><div class="effort">${btns}</div><div class="bar thin"><i id="${bind(() => ({ w: (game.s.cd.effort > game.s.time ? (1 - (game.s.cd.effort - game.s.time) / game.effortCd()) * 100 : 100) + '%' }))}"></i></div>`);
+    const btns = G.SECTORS.filter((x) => s.era >= x.unlock).map((x) => `<button class="btn sm ${s.autoEffort === x.id ? 'on' : ''}" data-act="effort" data-id="${x.id}" id="${bind(() => ({ d: !game.s.autoEffort && game.s.cd.effort > game.s.time }))}" data-tip="+${RN[x.id]}">${G.ICON[x.id]}<span id="${bind(() => G.fmt(game.effortAmt(x.id)))}"></span></button>`).join('');
+    const auto = s.autoEffort;
+    h += sec('Mutirão', `<p class="hint">${auto ? `Automático: o povo é convocado sozinho a cada ${game.effortCd()} s para produzir <b>${RN[auto].toLowerCase()}</b>. Clique noutro recurso para mudar.` : 'Convoque o povo para um esforço concentrado.'}</p><div class="effort">${btns}</div><button class="btn ghost wide-sm auto-ef ${auto ? 'on' : ''}" data-act="autoeffort">${auto ? 'Automático ligado — desligar' : 'Convocar automaticamente'}</button><div class="bar thin"><i id="${bind(() => ({ w: (game.s.cd.effort > game.s.time ? (1 - (game.s.cd.effort - game.s.time) / game.effortCd()) * 100 : 100) + '%' }))}"></i></div>`);
     // assentamentos
     const mine = s.settlements.filter((x) => x.owner === 0).map((x) => ({ x, p: game.settlementPop(x) })).sort((a, b) => b.p - a.p);
     h += sec(`Assentamentos <small>${mine.length}</small>`, `<ol class="cities">${mine.slice(0, 14).map(({ x, p }) => `<li data-act="goto" data-id="${x.h}"><span class="cn">${x.capital ? '★ ' : ''}${esc(x.name)}</span><span class="ct">${game.TIERS[game.tierOf(p)].name}</span><span class="cp">${G.fmt(p)}</span></li>`).join('')}</ol>${mine.length > 14 ? `<p class="hint">e mais ${mine.length - 14}.</p>` : ''}`);
@@ -690,7 +691,12 @@
     selbody: (d, e) => { if (e.target.closest('button')) return; G.main.setView('solar'); G.spaceview.solar.sel = d.id; },
     colonize: () => game.colonizeBest(),
     alien: (d) => game.alienAct(d.id, d.x),
-    effort: (d) => game.effort(d.id),
+    effort: (d) => { if (game.s.autoEffort) game.s.autoEffort = d.id; game.effort(d.id); },
+    autoeffort: () => {
+      const s = game.s;
+      if (s.autoEffort) s.autoEffort = null;
+      else { const k = s.lastEffort && s.era >= G.SECTOR[s.lastEffort].unlock ? s.lastEffort : (s.era < 1 ? 'materials' : 'knowledge'); s.autoEffort = k; game.autoEffort(); }
+    },
     goto: (d) => { G.main.setView('earth'); const [x, y] = G.hexCenter(+d.id); G.mapview.flyTo(x, y, Math.max(G.mapview.cam.z, 2.6), 1.2); },
     view: (d) => G.main.setView(d.id),
     save: () => { game.save(); UI.toast('Jogo salvo'); },
