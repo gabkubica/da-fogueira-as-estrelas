@@ -485,17 +485,79 @@
   };
 
   // ---- GOVERNO ----
+  // efeitos como etiquetas: verde = vantagem, vermelho = desvantagem
+  function effItems(eff) {
+    if (!eff) return [];
+    const out = [];
+    const p = (v) => G.fmtPct(v);
+    if (eff.mult) for (const k in eff.mult) out.push({ t: RN[k] + ' ' + p(eff.mult[k]), good: eff.mult[k] >= 1 });
+    if (eff.cap) out.push({ t: 'Moradia ' + p(eff.cap), good: eff.cap >= 1 });
+    if (eff.growth) out.push({ t: 'Crescimento ' + p(eff.growth), good: eff.growth >= 1 });
+    if (eff.diplomacy) out.push({ t: 'Diplomacia ' + p(eff.diplomacy), good: eff.diplomacy >= 1 });
+    const cm = { build: 'Obras', tiles: 'Terras', overseas: 'Terras além-mar', absorb: 'Integrar povos', conquest: 'Conquistas', space: 'Projetos espaciais' };
+    for (const k in cm) if (eff[k]) out.push({ t: cm[k] + ' ' + p(eff[k]), good: eff[k] <= 1 });
+    return out;
+  }
+  const chips = (eff) => '<div class="efs">' + effItems(eff).map((x) => `<span class="ef ${x.good ? 'pos' : 'neg'}">${esc(x.t)}</span>`).join('') + '</div>';
+  UI.chips = chips;
+  function polGroup(p) {
+    const e = p.eff, m = e.mult || {};
+    if (e.space) return 'Espaço';
+    if (e.conquest || e.absorb || e.tiles || e.overseas || e.diplomacy || m.military) return 'Expansão e Poder';
+    if (m.knowledge || m.culture) return 'Saber e Cultura';
+    return 'Economia';
+  }
   R.governo = function () {
     const s = game.s, d = game.d;
-    const gc = memo(() => game.changeCost(60)), pc = memo(() => game.changeCost(30));
-    let h = sec('Forma de governo', `<div class="gov-now"><b>${esc(G.GOV[s.gov].name)}</b><p>${esc(G.GOV[s.gov].desc)}</p><div class="ie">${effLines(G.GOV[s.gov].eff).map(esc).join(' · ')}</div></div>
-      ${G.GOVS.filter((g) => d.govs.has(g.id) && g.id !== s.gov).map((g) => `<div class="item"><div class="ih"><b>${esc(g.name)}</b><span class="tag">${esc(g.title)}</span></div><div class="id">${esc(g.desc)}</div><div class="ie">${effLines(g.eff).map(esc).join(' · ')}</div><div class="ia">${costHTML(gc)}<button class="btn" data-act="gov" data-id="${g.id}" id="${bind(() => ({ d: !afford(gc) }))}">Adotar</button></div></div>`).join('')}
-      ${d.govs.size <= 1 ? '<p class="hint">Novas formas de governo surgem com as tecnologias.</p>' : ''}`);
-    const pols = G.POLICIES.filter((p) => d.pols.has(p.id));
-    h += sec(`Políticas <small>${s.policies.length} de ${d.slots}</small>`, d.slots === 0 ? '<p class="hint">A Chefia, no Neolítico, abre o primeiro espaço de política.</p>' :
-      pols.map((p) => { const on = s.policies.includes(p.id); return `<div class="policy ${on ? 'on' : ''}"><div class="ih"><b>${esc(p.name)}</b>${on ? '<span class="tag">em vigor</span>' : ''}</div><div class="id">${esc(p.desc)}</div><div class="ie">${effLines(p.eff).map(esc).join(' · ')}</div>
-        <div class="ia">${on ? '<span></span><button class="btn ghost" data-act="policy" data-id="' + p.id + '">Revogar</button>' : costHTML(pc) + `<button class="btn" data-act="policy" data-id="${p.id}" id="${bind(() => ({ d: !afford(pc) || game.s.policies.length >= game.d.slots }))}">Adotar</button>`}</div></div>`; }).join(''));
+    const gov = G.GOV[s.gov];
+    const others = G.GOVS.filter((g) => d.govs.has(g.id) && g.id !== s.gov).length;
+    let h = sec('Seu governo', `<div class="gov-card">
+        <div class="gk">${esc(game.empireName())}</div>
+        <div class="gn">${esc(gov.name)}</div>
+        <div class="gd">${esc(gov.desc)}</div>
+        ${chips(gov.eff)}
+        ${others ? `<button class="btn" data-act="govpick">Mudar forma de governo <small>(${others} disponíve${others > 1 ? 'is' : 'l'})</small></button>` : '<p class="hint">Novas formas de governo surgem com as tecnologias.</p>'}
+      </div>`);
+    // políticas como espaços
+    const avail = G.POLICIES.filter((p) => d.pols.has(p.id) && !s.policies.includes(p.id)).length;
+    let slots = '';
+    for (let i = 0; i < d.slots; i++) {
+      const pid = s.policies[i];
+      if (pid) {
+        const p = G.POLICY[pid];
+        slots += `<div class="slot on"><button class="x" data-act="policy" data-id="${p.id}" data-tip="Revogar (gratuito)">${G.ICON.close}</button><div class="sn">${esc(p.name)}</div>${chips(p.eff)}</div>`;
+      } else {
+        slots += `<button class="slot empty" data-act="polpick" ${avail ? '' : 'disabled'}><span>+</span>${avail ? 'Escolher política' : 'Nenhuma disponível'}</button>`;
+      }
+    }
+    const pc = memo(() => game.changeCost(30));
+    h += sec(`Políticas <small>${s.policies.length} de ${d.slots}</small>`, d.slots === 0
+      ? '<p class="hint">A Chefia, no Neolítico, abre o primeiro espaço de política.</p>'
+      : `<div class="slots">${slots}</div><p class="hint">Adotar custa <b id="${bind(() => G.fmt(pc().culture))}"></b> de cultura; revogar é gratuito. Novos espaços surgem com as tecnologias.</p>`);
     return h;
+  };
+  UI.govPicker = function () {
+    const s = game.s, d = game.d;
+    const list = G.GOVS.filter((g) => d.govs.has(g.id) && g.id !== s.gov).reverse();
+    const c = game.changeCost(60);
+    const ok = game.afford(c);
+    UI.modal(`<h2>Forma de governo</h2><p class="hint">Agora: <b>${esc(G.GOV[s.gov].name)}</b>. Trocar custa ${G.fmt(c.culture)} de cultura${ok ? '' : ' — cultura insuficiente'}.</p>
+      <div class="pick">${list.map((g) => `<div class="prow"><div class="pm"><div class="pn">${esc(g.name)} <span class="tag">${esc(g.title)}</span></div><div class="pd">${esc(g.desc)}</div>${chips(g.eff)}</div><button class="btn" data-act="gov" data-id="${g.id}" ${ok ? '' : 'disabled'}>Adotar</button></div>`).join('')}</div>
+      <div class="btnrow"><button class="btn ghost" data-act="close">Fechar</button></div>`,
+    { cls: 'pick-modal', onAct: (a, id) => { if (a === 'gov' && game.setGov(id)) { UI.closeModal(); UI.renderTab(); } } });
+  };
+  UI.polPicker = function () {
+    const s = game.s, d = game.d;
+    const list = G.POLICIES.filter((p) => d.pols.has(p.id) && !s.policies.includes(p.id));
+    const c = game.changeCost(30);
+    const ok = game.afford(c) && s.policies.length < d.slots;
+    const groups = {};
+    list.forEach((p) => (groups[polGroup(p)] = groups[polGroup(p)] || []).push(p));
+    const order = ['Economia', 'Saber e Cultura', 'Expansão e Poder', 'Espaço'];
+    UI.modal(`<h2>Escolher política</h2><p class="hint">Espaços livres: ${d.slots - s.policies.length}. Adotar custa ${G.fmt(c.culture)} de cultura${game.afford(c) ? '' : ' — cultura insuficiente'}.</p>
+      <div class="pick">${order.filter((g) => groups[g]).map((g) => `<div class="pgroup">${g}</div>` + groups[g].map((p) => `<div class="prow"><div class="pm"><div class="pn">${esc(p.name)}</div><div class="pd">${esc(p.desc)}</div>${chips(p.eff)}</div><button class="btn" data-act="policy" data-id="${p.id}" ${ok ? '' : 'disabled'}>Adotar</button></div>`).join('')).join('')}</div>
+      <div class="btnrow"><button class="btn ghost" data-act="close">Fechar</button></div>`,
+    { cls: 'pick-modal', onAct: (a, id) => { if (a === 'policy' && game.togglePolicy(id)) { UI.closeModal(); UI.renderTab(); } } });
   };
 
   // ---- HUMANIDADE ----
@@ -600,6 +662,8 @@
     annexpart: (d) => game.annexPart(+d.id, d.mode),
     gov: (d) => game.setGov(d.id),
     policy: (d) => game.togglePolicy(d.id),
+    govpick: () => UI.govPicker(),
+    polpick: () => UI.polPicker(),
     gene: (d) => game.buyGene(d.id),
     body: (d) => game.advanceBody(d.id),
     selbody: (d, e) => { if (e.target.closest('button')) return; G.main.setView('solar'); G.spaceview.solar.sel = d.id; },
@@ -647,7 +711,7 @@
     fn(el.dataset, e);
     if (act === 'expand' || act === 'annex' || act === 'annexpart') G.mapview.terrDirty = true;
     // ações que mudam a aba atual: redesenha já, sem esperar o próximo ciclo
-    const noRender = { tab: 1, tree: 1, menu: 1, editflag: 1, export: 1, import: 1, wipe: 1, upload: 1, download: 1, view: 1, goto: 1, selbody: 1 };
+    const noRender = { govpick: 1, polpick: 1, tab: 1, tree: 1, menu: 1, editflag: 1, export: 1, import: 1, wipe: 1, upload: 1, download: 1, view: 1, goto: 1, selbody: 1 };
     if (!noRender[act]) UI.renderTab();
     else UI.dirtyTab = true;
     UI.refresh();

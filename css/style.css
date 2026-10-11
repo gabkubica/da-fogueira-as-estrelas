@@ -580,3 +580,33 @@ body.panel-collapsed #toasts { right: 16px; }
 .legacy { margin-top: 6px; font-size: 13px; color: var(--ink3); font-style: italic; }
 .nextb { margin-top: 2px; font-size: 12.5px; color: var(--ink3); }
 .nextb::before { content: '→ '; color: var(--accent); }
+
+/* governo e políticas */
+.gov-card { border: 1px solid var(--line); padding: 12px 14px 14px; background: linear-gradient(180deg, rgba(214,162,78,.07), transparent 60%); }
+.gov-card .gk { font-family: var(--num); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink3); }
+.gov-card .gn { font-family: var(--title); font-size: 24px; line-height: 1.15; margin: 2px 0; }
+.gov-card .gd { font-style: italic; color: var(--ink2); font-size: 14px; margin-bottom: 8px; }
+.gov-card .btn { margin-top: 10px; width: 100%; }
+.gov-card .btn small { color: inherit; opacity: .7; margin-left: 4px; }
+.efs { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.ef { font-size: 12px; padding: 1px 7px; border: 1px solid; border-radius: 2px; white-space: nowrap; font-family: var(--body); }
+.ef.pos { color: var(--good); border-color: rgba(163,197,111,.4); background: rgba(163,197,111,.07); }
+.ef.neg { color: var(--bad); border-color: rgba(226,114,90,.4); background: rgba(226,114,90,.07); }
+.slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.slot { position: relative; min-height: 78px; border: 1px solid var(--line); padding: 9px 10px; text-align: left; }
+.slot.on { background: rgba(214,162,78,.06); }
+.slot .sn { font-family: var(--title); font-size: 16px; padding-right: 22px; line-height: 1.2; margin-bottom: 2px; }
+.slot .x { position: absolute; right: 4px; top: 4px; background: none; border: 0; color: var(--ink3); cursor: pointer; padding: 3px; }
+.slot .x:hover { color: var(--bad); }
+.slot.empty { border-style: dashed; background: none; color: var(--ink2); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-family: var(--head); font-size: 14px; }
+.slot.empty span { font-size: 22px; color: var(--accent); line-height: 1; }
+.slot.empty:hover:not(:disabled) { border-color: var(--accent); color: var(--ink); }
+.slot.empty:disabled { opacity: .45; cursor: default; }
+.pick-modal .mbox { max-width: 620px; }
+.pick { max-height: 60vh; overflow: auto; margin: 8px -6px 0; padding: 0 6px; }
+.pgroup { font-family: var(--num); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 14px 0 4px; }
+.prow { display: flex; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line2); }
+.prow .pm { flex: 1; min-width: 0; }
+.prow .pn { font-family: var(--title); font-size: 17px; }
+.prow .pd { font-style: italic; color: var(--ink2); font-size: 13.5px; }
+@media (max-width: 900px) { .slots { grid-template-columns: 1fr; } }
