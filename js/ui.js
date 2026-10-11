@@ -503,8 +503,10 @@
   function polGroup(p) {
     const e = p.eff, m = e.mult || {};
     if (e.space) return 'Espaço';
-    if (e.conquest || e.absorb || e.tiles || e.overseas || e.diplomacy || m.military) return 'Expansão e Poder';
-    if (m.knowledge || m.culture) return 'Saber e Cultura';
+    // classifica pela maior vantagem
+    const best = Object.keys(m).filter((k) => m[k] > 1).sort((x, y) => m[y] - m[x])[0];
+    if (e.conquest || e.absorb || e.tiles || e.overseas || (e.diplomacy && e.diplomacy > 1) || best === 'military') return 'Expansão e Poder';
+    if (best === 'knowledge' || best === 'culture') return 'Saber e Cultura';
     return 'Economia';
   }
   R.governo = function () {
@@ -525,7 +527,7 @@
       const pid = s.policies[i];
       if (pid) {
         const p = G.POLICY[pid];
-        slots += `<div class="slot on"><button class="x" data-act="policy" data-id="${p.id}" data-tip="Revogar (gratuito)">${G.ICON.close}</button><div class="sn">${esc(p.name)}</div>${chips(p.eff)}</div>`;
+        slots += `<div class="slot on"><button class="x" data-act="policy" data-id="${p.id}" data-tip="Revogar (gratuito)">${G.ICON.close}</button><div class="sn">${esc(p.name)}</div>${chips(p.eff)}<button class="swap" data-act="polswap" data-id="${p.id}">Trocar</button></div>`;
       } else {
         slots += `<button class="slot empty" data-act="polpick" ${avail ? '' : 'disabled'}><span>+</span>${avail ? 'Escolher política' : 'Nenhuma disponível'}</button>`;
       }
@@ -533,7 +535,7 @@
     const pc = memo(() => game.changeCost(30));
     h += sec(`Políticas <small>${s.policies.length} de ${d.slots}</small>`, d.slots === 0
       ? '<p class="hint">A Chefia, no Neolítico, abre o primeiro espaço de política.</p>'
-      : `<div class="slots">${slots}</div><p class="hint">Adotar custa <b id="${bind(() => G.fmt(pc().culture))}"></b> de cultura; revogar é gratuito. Novos espaços surgem com as tecnologias.</p>`);
+      : `<div class="slots">${slots}</div><button class="btn ghost wide-sm" data-act="polpick">Ver todas as políticas</button><p class="hint">Adotar custa <b id="${bind(() => G.fmt(pc().culture))}"></b> de cultura; revogar é gratuito. Novos espaços surgem com as tecnologias.</p>`);
     return h;
   };
   UI.govPicker = function () {
@@ -546,18 +548,36 @@
       <div class="btnrow"><button class="btn ghost" data-act="close">Fechar</button></div>`,
     { cls: 'pick-modal', onAct: (a, id) => { if (a === 'gov' && game.setGov(id)) { UI.closeModal(); UI.renderTab(); } } });
   };
-  UI.polPicker = function () {
+  UI.polPicker = function (swapId) {
     const s = game.s, d = game.d;
-    const list = G.POLICIES.filter((p) => d.pols.has(p.id) && !s.policies.includes(p.id));
+    const all = G.POLICIES.filter((p) => d.pols.has(p.id));
     const c = game.changeCost(30);
-    const ok = game.afford(c) && s.policies.length < d.slots;
+    const canPay = game.afford(c);
+    const free = d.slots - s.policies.length;
     const groups = {};
-    list.forEach((p) => (groups[polGroup(p)] = groups[polGroup(p)] || []).push(p));
+    all.forEach((p) => (groups[polGroup(p)] = groups[polGroup(p)] || []).push(p));
     const order = ['Economia', 'Saber e Cultura', 'Expansão e Poder', 'Espaço'];
-    UI.modal(`<h2>Escolher política</h2><p class="hint">Espaços livres: ${d.slots - s.policies.length}. Adotar custa ${G.fmt(c.culture)} de cultura${game.afford(c) ? '' : ' — cultura insuficiente'}.</p>
-      <div class="pick">${order.filter((g) => groups[g]).map((g) => `<div class="pgroup">${g}</div>` + groups[g].map((p) => `<div class="prow"><div class="pm"><div class="pn">${esc(p.name)}</div><div class="pd">${esc(p.desc)}</div>${chips(p.eff)}</div><button class="btn" data-act="policy" data-id="${p.id}" ${ok ? '' : 'disabled'}>Adotar</button></div>`).join('')).join('')}</div>
+    const head = swapId
+      ? `Trocar <b>${esc(G.POLICY[swapId].name)}</b> por outra política. A nova custa ${G.fmt(c.culture)} de cultura${canPay ? '' : ' — cultura insuficiente'}.`
+      : `Espaços livres: ${free} de ${d.slots}. Adotar custa ${G.fmt(c.culture)} de cultura${canPay ? '' : ' — cultura insuficiente'}.${free ? '' : ' Para adotar outra, use “Trocar” numa política em vigor.'}`;
+    const btn = (p) => {
+      if (s.policies.includes(p.id)) return '<span class="tag">em vigor</span>';
+      if (swapId) return `<button class="btn" data-act="doswap" data-id="${p.id}" ${canPay ? '' : 'disabled'}>Pôr no lugar</button>`;
+      return `<button class="btn" data-act="policy" data-id="${p.id}" ${canPay && free ? '' : 'disabled'}>${free ? 'Adotar' : 'Sem espaço'}</button>`;
+    };
+    UI.modal(`<h2>${swapId ? 'Trocar política' : 'Políticas'}</h2><p class="hint">${head}</p>
+      <div class="pick">${order.filter((g) => groups[g]).map((g) => `<div class="pgroup">${g}</div>` + groups[g].map((p) => `<div class="prow ${s.policies.includes(p.id) ? 'active' : ''}"><div class="pm"><div class="pn">${esc(p.name)}</div><div class="pd">${esc(p.desc)}</div>${chips(p.eff)}</div>${btn(p)}</div>`).join('')).join('')}</div>
       <div class="btnrow"><button class="btn ghost" data-act="close">Fechar</button></div>`,
-    { cls: 'pick-modal', onAct: (a, id) => { if (a === 'policy' && game.togglePolicy(id)) { UI.closeModal(); UI.renderTab(); } } });
+    { cls: 'pick-modal', onAct: (a, id) => {
+      if (a === 'policy' && game.togglePolicy(id)) { UI.closeModal(); UI.renderTab(); }
+      if (a === 'doswap') {
+        // revoga a antiga e adota a nova; se não der, devolve a antiga
+        if (!game.afford(game.changeCost(30))) return;
+        game.togglePolicy(swapId);
+        if (game.togglePolicy(id)) { UI.closeModal(); UI.renderTab(); }
+        else { s.policies.push(swapId); game.recalc(); }
+      }
+    } });
   };
 
   // ---- HUMANIDADE ----
@@ -664,6 +684,7 @@
     policy: (d) => game.togglePolicy(d.id),
     govpick: () => UI.govPicker(),
     polpick: () => UI.polPicker(),
+    polswap: (d) => UI.polPicker(d.id),
     gene: (d) => game.buyGene(d.id),
     body: (d) => game.advanceBody(d.id),
     selbody: (d, e) => { if (e.target.closest('button')) return; G.main.setView('solar'); G.spaceview.solar.sel = d.id; },
@@ -711,7 +732,7 @@
     fn(el.dataset, e);
     if (act === 'expand' || act === 'annex' || act === 'annexpart') G.mapview.terrDirty = true;
     // ações que mudam a aba atual: redesenha já, sem esperar o próximo ciclo
-    const noRender = { govpick: 1, polpick: 1, tab: 1, tree: 1, menu: 1, editflag: 1, export: 1, import: 1, wipe: 1, upload: 1, download: 1, view: 1, goto: 1, selbody: 1 };
+    const noRender = { govpick: 1, polpick: 1, polswap: 1, tab: 1, tree: 1, menu: 1, editflag: 1, export: 1, import: 1, wipe: 1, upload: 1, download: 1, view: 1, goto: 1, selbody: 1 };
     if (!noRender[act]) UI.renderTab();
     else UI.dirtyTab = true;
     UI.refresh();

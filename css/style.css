@@ -610,3 +610,8 @@ body.panel-collapsed #toasts { right: 16px; }
 .prow .pn { font-family: var(--title); font-size: 17px; }
 .prow .pd { font-style: italic; color: var(--ink2); font-size: 13.5px; }
 @media (max-width: 900px) { .slots { grid-template-columns: 1fr; } }
+
+.slot .swap { margin-top: 6px; background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font-family: var(--head); font-size: 13px; }
+.slot .swap:hover { text-decoration: underline; }
+.btn.wide-sm { width: 100%; margin-top: 8px; }
+.prow.active { opacity: .7; }
