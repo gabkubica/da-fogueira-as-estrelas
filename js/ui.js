@@ -661,6 +661,30 @@
     UI.reportError(msg);
   };
 
+  UI.diagnostic = function () {
+    if (document.querySelector('.diag')) return;
+    const M = G.main, MV = G.mapview;
+    const info = [
+      'etapa: ' + (MV.stage || 'nenhuma'),
+      'progresso: ' + Math.round((M.loadProg || 0) * 100) + '%',
+      'tempo: ' + Math.round((performance.now() - (M.loadStart || 0)) / 1000) + 's',
+      'resolução do mapa: ' + MV.TS + (MV.simple ? ' (modo simples)' : ''),
+      'tela: ' + innerWidth + '×' + innerHeight + ' @' + (window.devicePixelRatio || 1),
+      'navegador: ' + navigator.userAgent,
+      'erros: ' + (M.errors && M.errors.length ? M.errors.join(' | ') : 'nenhum'),
+    ].join(String.fromCharCode(10));
+    const d = document.createElement('div');
+    d.className = 'diag';
+    d.innerHTML = '<b>O mapa está demorando mais que o normal.</b><p>Tente o modo simples (desenho mais leve). Se não resolver, copie o diagnóstico e mande para quem fez o jogo.</p><pre>' + esc(info) + '</pre><div class="btnrow"><button class="btn" data-d="simples">Usar modo simples</button><button class="btn ghost" data-d="copiar">Copiar diagnóstico</button></div>';
+    d.onclick = (e) => {
+      const b = e.target.closest('[data-d]');
+      if (!b) return;
+      if (b.dataset.d === 'simples') { d.remove(); M.simpleMode(); }
+      if (b.dataset.d === 'copiar') { try { navigator.clipboard.writeText(info); b.textContent = 'Copiado!'; } catch (er) { b.textContent = 'Selecione o texto acima'; } }
+    };
+    document.getElementById('stage').appendChild(d);
+  };
+
   // ---------------- modais ----------------
   UI.modal = function (html, opts) {
     opts = opts || {};

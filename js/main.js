@@ -53,13 +53,17 @@
   };
 
   // ---------------- início ----------------
-  addEventListener('error', (e) => { if (UI.fatal && e && e.message) UI.reportError(e.message + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')); });
+  M.errors = [];
+  addEventListener('error', (e) => { if (!e || !e.message) return; const t = e.message + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : ''); M.errors.push(t); if (UI.reportError) UI.reportError(t); });
   addEventListener('unhandledrejection', (e) => { if (UI.reportError) UI.reportError(String(e.reason && e.reason.message || e.reason)); });
   function boot() {
     canvas = $('#view');
     ctx = canvas.getContext('2d');
     resize();
     addEventListener('resize', resize);
+    // o palco pode mudar de tamanho sem a janela mudar (fontes carregando, HUD, painel)
+    if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(canvas.parentElement);
+    else setInterval(() => { const r = canvas.parentElement.getBoundingClientRect(); if (Math.abs(r.width - W) > 1 || Math.abs(r.height - H) > 1) resize(); }, 500);
     UI.wire();
     UI.wireSel();
     wireInput();
@@ -83,10 +87,17 @@
   }
 
   function newGame(opts) {
-    const s = game.newState({ seed: opts.seed, civName: opts.civName, color: G.flagMapColor(opts.flag), voice: opts.voice, flag: opts.flag });
-    game.start(s);
-    game.save();
-    startPlaying(true, null);
+    const ld = $('#loading');
+    ld.hidden = false; $('#loading span').textContent = 'Criando o mundo…';
+    // deixa o navegador mostrar a tela de carregamento antes do trabalho pesado
+    setTimeout(() => {
+      try {
+        const s = game.newState({ seed: opts.seed, civName: opts.civName, color: G.flagMapColor(opts.flag), voice: opts.voice, flag: opts.flag });
+        game.start(s);
+        game.save();
+        startPlaying(true, null);
+      } catch (e) { console.error(e); M.errors.push('início: ' + (e && e.stack || e)); UI.fatal('Erro ao criar o mundo: ' + (e && e.message || e)); }
+    }, 60);
   }
   M.loadData = function (data) {
     M.offline = true;
@@ -109,7 +120,8 @@
 
   function startPlaying(isNew, off) {
     MV.reset(); SV.resetGalaxy();
-    MV.TS = innerWidth < 900 ? 1.3 : 2;
+    try { if (localStorage.getItem('fae-simples') === '1') MV.simple = true; } catch (e) {}
+    MV.TS = MV.simple ? 1 : innerWidth < 900 ? 1.3 : 2;
     M.seen = {};
     applyTheme();
     game.rates();
@@ -118,8 +130,14 @@
     const style = MV.styleForEra(game.s.era);
     const ld = $('#loading');
     ld.hidden = false;
+    $('#loading span').textContent = 'Desenhando o mundo…';
+    M.loadStart = performance.now();
+    clearTimeout(M.diagT);
+    M.diagT = setTimeout(() => { if (!M.running) UI.diagnostic(); }, 12000);
     MV.ensureStyle(style, () => {
       ld.hidden = true;
+      clearTimeout(M.diagT);
+      const dg = document.querySelector('.diag'); if (dg) dg.remove();
       MV.setStyle(style, true);
       const cap = game.s.settlements.find((x) => x.capital && x.owner === 0);
       if (isNew && cap) { const [x, y] = G.hexCenter(cap.h); MV.cam.x = x; MV.cam.y = y; MV.cam.z = 1.6; MV.flyTo(x, y, 3.6, 3.5); }
@@ -128,8 +146,14 @@
       simLast = Date.now(); acc = 0;
       if (isNew) UI.eraNote(0);
       else if (off) offlineModal(off);
-    }, (p) => { $('#loading i').style.width = Math.round(p * 100) + '%'; });
+    }, (p) => { M.loadProg = p; $('#loading i').style.width = Math.round(p * 100) + '%'; });
   }
+  // recomeça o desenho do mapa no modo simples (sem símbolos, resolução menor)
+  M.simpleMode = function () {
+    try { localStorage.setItem('fae-simples', '1'); } catch (e) {}
+    MV.simple = true;
+    startPlaying(false, null);
+  };
 
   function offlineModal(off) {
     const b = off.before, a = off.after;

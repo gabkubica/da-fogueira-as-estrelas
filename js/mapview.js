@@ -57,6 +57,7 @@
   // ---------------- geração de terreno (fatiada no tempo) ----------------
   function* terrainJob(world, styleId, Wf, Hf, out) {
     // os pixels são calculados em meia resolução e ampliados; símbolos e rios são desenhados na resolução cheia
+    MV.stage = 'calculando o terreno';
     const half = out.half && Wf > 800;
     const W = half ? Math.round(Wf / 2) : Wf, Hh = half ? Math.round(Hf / 2) : Hf;
     const P = PAL[styleId];
@@ -117,6 +118,8 @@
       }
       if ((py & 7) === 7) yield py / Hh;
     }
+    MV.stage = 'pintando o terreno';
+    yield 1;
     ctx.putImageData(img, 0, 0);
     let fin = cv, fctx = ctx;
     if (half) {
@@ -134,7 +137,11 @@
       mx.putImageData(mi, 0, 0);
       out.mask = mc;
     }
+    MV.stage = 'traçando as costas';
+    yield 1;
     drawContours(fctx, world, styleId, Wf / H.MW);
+    MV.stage = 'desenhando montanhas, florestas e rios';
+    yield 1;
     if (out.glyphs) drawGlyphs(fctx, world, styleId, Wf / H.MW);
     if (out.glyphs) drawRivers(fctx, world, styleId, Wf / H.MW);
     out.canvas = fin;
@@ -358,7 +365,7 @@
     if (MV.building[styleId]) { MV.building[styleId].push(cb); return; }
     MV.building[styleId] = [cb];
     const W = Math.round(H.MW * MV.TS), Hh = Math.round(H.MH * MV.TS);
-    const out = { wantMask: !MV.mask, glyphs: true, half: true };
+    const out = { wantMask: !MV.mask, glyphs: !MV.simple, half: true };
     const fail = (e) => {
       // plano B: resolução menor; se ainda falhar, avisa na tela
       if (MV.TS > 1) {
