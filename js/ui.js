@@ -177,6 +177,7 @@
       </div>
       <div class="hud-res">${chips}</div>
       <div class="hud-glory" data-tipk="glory:"><span class="ci">${G.ICON.glory}</span><b id="${bind(() => game.d.glory)}"></b></div>
+      <button class="hud-menu" data-act="menu" title="Salvar, exportar, carregar">${G.ICON.save}<span>Jogo</span></button>
     `;
     // linha do tempo
     $('#timeline').innerHTML = G.ERAS.map((E, e) => `<div class="tseg" data-tipk="era:${e}" id="${bind(() => ({ c: { past: game.s.era > e, now: game.s.era === e } }))}">
@@ -580,9 +581,7 @@
       <div class="kv"><span>Tecnologias</span><b>${Object.keys(s.techs).length} de ${G.TECHS.length}</b></div>
       <div class="kv"><span>Maravilhas</span><b>${game.d.glory} de ${G.WONDERS.length}</b></div>`);
     h += sec(`Marcos <small>${Object.keys(s.milestones).length} de ${G.MILESTONES.length}</small>`, `<div class="miles">${G.MILESTONES.map((m) => `<span class="mile ${s.milestones[m.id] != null ? 'on' : ''}" data-tip="${esc(m.desc)}${s.milestones[m.id] != null ? ' — ' + G.fmtYear(s.milestones[m.id]) : ''}">${esc(m.name)}</span>`).join('')}</div>`);
-    h += sec('Arquivo', `<p class="hint">O jogo salva sozinho a cada 20 segundos neste navegador.</p>
-      <div class="btnrow"><button class="btn" data-act="save">Salvar agora</button><button class="btn ghost" data-act="export">Exportar</button><button class="btn ghost" data-act="import">Importar</button></div>
-      <div class="btnrow"><button class="btn war ghost" data-act="wipe">Começar um novo mundo</button></div>`);
+    h += sec('Arquivo', UI.saveMenuHTML());
     return h;
   };
 
@@ -608,8 +607,32 @@
     goto: (d) => { G.main.setView('earth'); const [x, y] = G.hexCenter(+d.id); G.mapview.flyTo(x, y, Math.max(G.mapview.cam.z, 2.6), 1.2); },
     view: (d) => G.main.setView(d.id),
     save: () => { game.save(); UI.toast('Jogo salvo'); },
-    export: () => { const str = game.exportStr(); UI.modal(`<h2>Exportar</h2><p class="hint">Guarde este texto. Ele contém todo o seu império.</p><textarea class="io" readonly>${str}</textarea><div class="btnrow"><button class="btn" data-act="copy">Copiar</button><button class="btn ghost" data-act="close">Fechar</button></div>`, { onAct: (a) => { if (a === 'copy') { navigator.clipboard && navigator.clipboard.writeText(str); UI.toast('Copiado'); } } }); },
-    import: () => UI.modal(`<h2>Importar</h2><p class="hint">Cole o texto exportado. O império atual será substituído.</p><textarea class="io" id="impTxt"></textarea><div class="btnrow"><button class="btn" data-act="doimport">Importar</button><button class="btn ghost" data-act="close">Cancelar</button></div>`, { onAct: (a) => { if (a === 'doimport') { const data = game.importStr($('#impTxt').value); if (!data || !data.s) { UI.toast('Texto inválido', 'bad'); return; } UI.closeModal(); G.main.loadData(data); } } }),
+    menu: () => UI.modal('<h2>Jogo</h2>' + UI.saveMenuHTML() + '<div class="btnrow"><button class="btn ghost" data-act="close">Fechar</button></div>', { onAct: (a, id, el) => { if (ACT[a]) { UI.closeModal(); ACT[a](el.dataset); } } }),
+    download: () => {
+      const str = game.serialize();
+      const blob = new Blob([str], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const nm = (game.s.civName || 'imperio').normalize('NFD').replace(/[^A-Za-z0-9]+/g, '-').toLowerCase();
+      a.download = 'fogueira-' + nm + '-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+      UI.toast('Save baixado: ' + a.download);
+    },
+    upload: () => {
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = '.json,.txt,application/json,text/plain';
+      inp.onchange = () => {
+        const f = inp.files && inp.files[0];
+        if (!f) return;
+        const rd = new FileReader();
+        rd.onload = () => { const txt = String(rd.result || ''); let data = null; try { data = JSON.parse(txt); } catch (e) { data = game.importStr(txt); } UI.confirmLoad(data); };
+        rd.readAsText(f);
+      };
+      inp.click();
+    },
+    export: () => { const str = game.exportStr(); UI.modal('<h2>Código do save</h2><p class="hint">Guarde este texto (num bloco de notas, num e-mail…). Ele contém todo o seu império e pode ser colado em outro navegador ou no celular.</p><textarea class="io" readonly>' + str + '</textarea><div class="btnrow"><button class="btn" data-act="copy">Copiar</button><button class="btn ghost" data-act="close">Fechar</button></div>', { onAct: (a) => { if (a === 'copy') { try { navigator.clipboard.writeText(str); UI.toast('Código copiado'); } catch (e) { UI.toast('Selecione o texto e copie', 'bad'); } } } }); },
+    import: () => UI.modal('<h2>Colar código do save</h2><p class="hint">Cole o código copiado antes. O império atual será substituído.</p><textarea class="io" id="impTxt"></textarea><div class="btnrow"><button class="btn" data-act="doimport">Carregar</button><button class="btn ghost" data-act="close">Cancelar</button></div>', { onAct: (a) => { if (a === 'doimport') { const txt = $('#impTxt').value; let data = game.importStr(txt); if (!data) { try { data = JSON.parse(txt); } catch (e) {} } UI.closeModal(); UI.confirmLoad(data); } } }),
     wipe: () => UI.modal(`<h2>Começar um novo mundo?</h2><p>O império atual será apagado para sempre. Exporte antes se quiser guardá-lo.</p><div class="btnrow"><button class="btn war" data-act="dowipe">Apagar e recomeçar</button><button class="btn ghost" data-act="close">Cancelar</button></div>`, { onAct: (a) => { if (a === 'dowipe') { game.wipe(); location.reload(); } } }),
     editflag: () => UI.empireEditor(),
   };
@@ -683,6 +706,26 @@
       if (b.dataset.d === 'copiar') { try { navigator.clipboard.writeText(info); b.textContent = 'Copiado!'; } catch (er) { b.textContent = 'Selecione o texto acima'; } }
     };
     document.getElementById('stage').appendChild(d);
+  };
+
+  // ---------------- arquivo do jogo ----------------
+  UI.saveMenuHTML = () => '<p class="hint">O jogo salva sozinho a cada 20 segundos neste navegador e continua de onde parou quando você volta.</p>' +
+    '<div class="savegrid">' +
+    '<button class="btn" data-act="save">' + G.ICON.save + ' Salvar agora</button>' +
+    '<button class="btn" data-act="download">Baixar save (arquivo)</button>' +
+    '<button class="btn" data-act="upload">Carregar save (arquivo)</button>' +
+    '<button class="btn ghost" data-act="export">Copiar código do save</button>' +
+    '<button class="btn ghost" data-act="import">Colar código do save</button>' +
+    '<button class="btn war ghost" data-act="wipe">Começar um novo mundo</button>' +
+    '</div>';
+  UI.confirmLoad = function (data) {
+    if (!data || !data.s || data.s.seed == null) { UI.toast('Esse arquivo não é um save válido do jogo', 'bad'); return; }
+    const s = data.s;
+    const quando = s.savedAt ? new Date(s.savedAt).toLocaleString('pt-BR') : 'data desconhecida';
+    const kv = (k, v) => '<div class="kv"><span>' + k + '</span><b>' + v + '</b></div>';
+    UI.modal('<h2>Carregar este império?</h2>' + kv('Povo', esc(s.civName || '?')) + kv('Era', esc((G.ERAS[s.era] || {}).name || '?')) + kv('Ano', G.fmtYear(s.year || 0)) + kv('População', G.fmt(s.pop || 0)) + kv('Salvo em', esc(quando)) +
+      '<p class="hint">O império atual será substituído. Se quiser guardá-lo, baixe o save dele antes.</p><div class="btnrow"><button class="btn" data-act="doload">Carregar</button><button class="btn ghost" data-act="close">Cancelar</button></div>',
+    { onAct: (a) => { if (a === 'doload') { UI.closeModal(); G.main.loadData(data); } } });
   };
 
   // ---------------- modais ----------------

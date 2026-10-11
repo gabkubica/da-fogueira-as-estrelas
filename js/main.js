@@ -77,7 +77,10 @@
       zoomAt(W / 2, H / 2, z === 'in' ? 1.35 : 1 / 1.35);
     });
     const saved = game.loadSaved();
-    UI.showStart(!!(saved && saved.s), newGame, () => M.loadData(saved));
+    setupPanel();
+    // havendo império salvo, o jogo continua direto nele
+    if (saved && saved.s) M.loadData(saved, true);
+    else UI.showStart(false, newGame, null);
     requestAnimationFrame(frame);
     addEventListener('visibilitychange', () => {
       if (!M.running) return;
@@ -99,14 +102,52 @@
       } catch (e) { console.error(e); M.errors.push('início: ' + (e && e.stack || e)); UI.fatal('Erro ao criar o mundo: ' + (e && e.message || e)); }
     }, 60);
   }
-  M.loadData = function (data) {
-    M.offline = true;
-    try { game.resume(data); } catch (e) { console.error(e); UI.toast('Não foi possível carregar o império salvo.', 'bad'); M.offline = false; return; }
-    const secs = (Date.now() - (data.s.savedAt || Date.now())) / 1000;
-    const off = game.offline(secs);
-    M.offline = false;
-    startPlaying(false, off);
+  M.loadData = function (data, atBoot) {
+    M.running = false;
+    const ld = $('#loading');
+    ld.hidden = false; $('#loading span').textContent = 'Retomando o império…';
+    setTimeout(() => {
+      M.offline = true;
+      try { game.resume(data); }
+      catch (e) {
+        console.error(e); M.offline = false;
+        ld.hidden = true;
+        UI.toast('Não foi possível carregar o império salvo.', 'bad');
+        if (atBoot) UI.showStart(false, newGame, null);
+        return;
+      }
+      const secs = (Date.now() - (data.s.savedAt || Date.now())) / 1000;
+      const off = game.offline(secs);
+      M.offline = false;
+      game.save();
+      startPlaying(false, off);
+    }, 60);
   };
+
+  // ---------------- painel lateral: largura ajustável e recolher ----------------
+  function setupPanel() {
+    const root = document.documentElement, body = document.body;
+    const rz = $('#panel-resizer'), col = $('#panel-collapse'), exp = $('#panel-expand');
+    let pref = { w: 410, c: false };
+    try { pref = Object.assign(pref, JSON.parse(localStorage.getItem('fae-painel') || '{}')); } catch (e) {}
+    const maxW = () => (innerWidth >= 700 ? Math.max(320, Math.min(760, innerWidth - 320)) : 760);
+    const apply = () => {
+      root.style.setProperty('--panel-w', G.clamp(pref.w, 280, maxW()) + 'px');
+      body.classList.toggle('panel-collapsed', !!pref.c);
+      exp.hidden = !pref.c;
+    };
+    const store = () => { try { localStorage.setItem('fae-painel', JSON.stringify(pref)); } catch (e) {} };
+    apply();
+    let drag = false;
+    rz.addEventListener('pointerdown', (e) => { drag = true; rz.classList.add('drag'); rz.setPointerCapture(e.pointerId); body.style.userSelect = 'none'; e.preventDefault(); });
+    rz.addEventListener('pointermove', (e) => { if (!drag) return; pref.w = G.clamp(innerWidth - e.clientX, 280, maxW()); apply(); });
+    const end = () => { if (!drag) return; drag = false; rz.classList.remove('drag'); body.style.userSelect = ''; store(); };
+    rz.addEventListener('pointerup', end); rz.addEventListener('pointercancel', end);
+    rz.addEventListener('dblclick', () => { pref.w = 410; apply(); store(); });
+    col.addEventListener('click', () => { pref.c = true; apply(); store(); });
+    exp.addEventListener('click', () => { pref.c = false; apply(); store(); });
+    addEventListener('resize', apply);
+  }
   function catchUp(secs) {
     M.offline = true;
     const before = game.s.era;
@@ -141,7 +182,7 @@
       MV.setStyle(style, true);
       const cap = game.s.settlements.find((x) => x.capital && x.owner === 0);
       if (isNew && cap) { const [x, y] = G.hexCenter(cap.h); MV.cam.x = x; MV.cam.y = y; MV.cam.z = 1.6; MV.flyTo(x, y, 3.6, 3.5); }
-      else { const [x, y] = cap ? G.hexCenter(cap.h) : [0, 0]; MV.cam.x = x; MV.cam.y = y; MV.cam.z = 2; MV.focusOwn(0.01); }
+      else { const [x, y] = cap ? G.hexCenter(cap.h) : [0, 0]; MV.cam.x = x; MV.cam.y = y; MV.cam.z = 3; MV.wantFocus = true; }
       M.running = true;
       simLast = Date.now(); acc = 0;
       if (isNew) UI.eraNote(0);
@@ -247,7 +288,11 @@
   function draw(dt, time) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     try {
-      if (M.view === 'earth') { MV.update(dt); MV.draw(ctx, time); }
+      if (M.view === 'earth') {
+        // enquadra o império só quando a área do mapa já tem o tamanho real
+        if (MV.wantFocus && MV.screenW > 200 && MV.screenH > 150) { MV.wantFocus = false; MV.focusOwn(0.01); }
+        MV.update(dt); MV.draw(ctx, time);
+      }
       else if (M.view === 'globe') SV.drawGlobeView(ctx, time, dt);
       else if (M.view === 'solar') SV.drawSolar(ctx, time);
       else if (M.view === 'galaxy') { SV.updateGalaxy(dt); SV.drawGalaxy(ctx, time); }

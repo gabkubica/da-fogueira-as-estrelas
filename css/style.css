@@ -546,3 +546,23 @@ body[data-map="night"] .tk span, body[data-view="globe"] .tk span, body[data-vie
 .diag b { font-family: var(--title); font-size: 19px; font-weight: normal; }
 .diag p { margin: 6px 0; color: var(--ink2); font-style: italic; }
 .diag pre { white-space: pre-wrap; word-break: break-word; font-family: var(--num); font-size: 11.5px; background: #0f0d0a; padding: 8px; max-height: 180px; overflow: auto; color: #cbbfa8; }
+
+/* painel ajustável */
+#panel-resizer { position: absolute; left: -5px; top: 0; bottom: 0; width: 10px; cursor: col-resize; z-index: 7; }
+#panel-resizer::after { content: ''; position: absolute; left: 4px; top: 0; bottom: 0; width: 2px; background: transparent; transition: background .15s; }
+#panel-resizer:hover::after, #panel-resizer.drag::after { background: var(--accent); }
+#panel-collapse { position: absolute; right: 8px; top: 7px; z-index: 6; width: 26px; height: 24px; background: none; border: 1px solid var(--line); color: var(--ink2); cursor: pointer; font-size: 15px; line-height: 1; }
+#panel-collapse:hover { color: var(--ink); border-color: var(--accent); }
+#tabs { padding-right: 40px; }
+body.panel-collapsed main { grid-template-columns: 1fr 0; }
+body.panel-collapsed #panel { display: none; }
+body.panel-collapsed #toasts { right: 16px; }
+#panel-expand { position: absolute; right: 0; top: 50%; transform: translateY(-50%); z-index: 4; writing-mode: vertical-rl; background: rgba(26,22,17,.95); color: var(--ink); border: 1px solid var(--line); border-right: 0; padding: 16px 7px; cursor: pointer; font-family: var(--head); font-size: 15px; box-shadow: var(--shadow); }
+#panel-expand:hover { color: var(--accent); }
+@media (max-width: 900px) { #panel-resizer, #panel-collapse, #panel-expand { display: none !important; } body.panel-collapsed #panel { display: flex; } body.panel-collapsed main { grid-template-columns: 1fr; } }
+/* menu do jogo */
+.hud-menu { display: flex; align-items: center; gap: 6px; background: none; border: 1px solid var(--line); color: var(--ink2); padding: 5px 10px; cursor: pointer; font-family: var(--head); font-size: 14px; margin-left: 4px; flex: none; }
+.hud-menu:hover { color: var(--ink); border-color: var(--accent); }
+.savegrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+.savegrid .btn { justify-content: center; white-space: normal; }
+@media (max-width: 900px) { .hud-menu span { display: none; } }
