@@ -309,6 +309,11 @@
   };
   // potencial produtivo: o que 30% do povo produziria neste setor (independe da divisão de trabalho)
   game.pot = (k) => Math.max(1e-9, game.s.pop * 0.3 * G.SECTOR[k].base * game.d.mult[k]);
+  // teto: nenhum recurso custa mais que `secs` segundos do potencial do império (rede de segurança para quem ficou para trás)
+  game.capCost = function (c, secs) {
+    for (const k in c) c[k] = Math.min(c[k], secs * game.pot(k));
+    return c;
+  };
   game.landT = (n) => Math.pow(1 + n / 40, 0.6);
   game.tileCostVal = function (h) {
     const s = game.s, w = game.world, d = game.d;
@@ -678,7 +683,7 @@
   };
 
   // ---------- tecnologias ----------
-  game.techCost = (t) => ({ knowledge: BAL.KC[t.era] * t.c * game.d.mods.tech });
+  game.techCost = (t) => game.capCost({ knowledge: BAL.KC[t.era] * t.c * game.d.mods.tech }, BAL.CAP.tech[t.era] * t.c * game.d.mods.tech);
   game.eraTechs = (e) => G.TECHS.filter((t) => t.era === e);
   game.techState = function (t) {
     const s = game.s;
@@ -779,7 +784,7 @@
     const c = { materials: sc, culture: sc * 0.25 };
     if (w.era >= 2) c.wealth = sc * BAL.RW[w.era] * 0.35;
     if (w.era >= 6) c.energy = sc * BAL.RE[w.era] * 0.4;
-    return c;
+    return game.capCost(c, BAL.CAP.wonder * w.c * game.d.mods.build * game.WSTAGE[Math.min(2, stage)] / 0.25);
   };
   game.wonderState = function (w) {
     const s = game.s;
@@ -876,11 +881,12 @@
     const e = game.bodyEra(b), d = 1 + (b.diff - 1) * 0.15, m = game.d.mods.space * (BAL.BC[e] || 1);
     const sc = BAL.SC[e] * d * m, kc = BAL.KC[e] * d * m;
     const re = BAL.RE[e] || 0.003, rw = BAL.RW[e] || 0.04;
-    if (st === 0) return { knowledge: kc * 1.2, energy: sc * re * 2 };
-    if (st === 1) return { materials: sc * 3, energy: sc * 3 * re * 0.8 };
+    const cap = BAL.CAP.body * d * game.d.mods.space;
+    if (st === 0) return game.capCost({ knowledge: kc * 1.2, energy: sc * re * 2 }, cap * 0.5);
+    if (st === 1) return game.capCost({ materials: sc * 3, energy: sc * 3 * re * 0.8 }, cap * 0.75);
     const L = st - 2;
     const f = 8 * Math.pow(2.3, L);
-    return { materials: sc * f, energy: sc * f * re * 0.5, wealth: sc * f * rw * 0.3 };
+    return game.capCost({ materials: sc * f, energy: sc * f * re * 0.5, wealth: sc * f * rw * 0.3 }, cap * Math.pow(1.6, L));
   };
   game.stageLabel = function (b, st) {
     if (st <= 0) return 'Desconhecido';
@@ -968,7 +974,7 @@
     const R = Math.min(game.galRange(), 400);
     const c = game.scale() * (BAL.BC[game.s.era] || 1) * 2.2 * Math.pow(1 + (game.galCount || 1) / 5, 1.3) * (1 + (d / Math.max(R, 1)) * 0.4) * (1.25 - 0.45 * s.hab) * game.d.mods.space;
     const e = game.s.era;
-    return { materials: c, energy: c * BAL.RE[e] * 0.5, wealth: c * BAL.RW[e] * 0.3 };
+    return game.capCost({ materials: c, energy: c * BAL.RE[e] * 0.5, wealth: c * BAL.RW[e] * 0.3 }, BAL.CAP.sys * Math.sqrt(1 + (game.galCount || 1) / 5) * game.d.mods.space);
   };
   game.colonize = function (j) {
     const f = game.galFrontier().find((x) => x.j === j);

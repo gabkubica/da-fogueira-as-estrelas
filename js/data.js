@@ -10,6 +10,8 @@
     KC: [6.28e1, 3.62e4, 4.28e6, 2.56e8, 2.18e9, 3.64e10, 7.28e11, 1.82e13, 6.99e16, 1.03e23, 6.11e26, 4.43e25],
     TC: [18, 7.24, 5.54, 4.34, 3.61, 1.73, 0.748, 0.479, 0.1, 0.1, 0.1, 0.1], // segundos de capacidade produtiva por terra (ritmo da expansão por era)
     BC: [1, 1, 1, 1, 1, 1, 1, 1, 0.219, 0.00073, 0.00737, 0.0001], // fator de custo de corpos celestes e sistemas estelares
+    // tetos de custo, em segundos do potencial (30% do povo) — ninguém fica preso porque a economia ficou para trás
+    CAP: { tech: [150, 150, 150, 150, 150, 150, 150, 150, 90, 90, 90, 90], body: 120, wonder: 120, sys: 60 },
     GSECS: 200, // alimento de um gene: ~200 s × custo × consumo de 30% do povo
     BSECS: 40, // a 1ª construção de cada era custa ~60 s da produção (de 30% do povo) no começo da era
     // quanto o império produz de riqueza e energia para cada unidade de materiais (por era);
