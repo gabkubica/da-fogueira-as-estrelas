@@ -270,8 +270,8 @@
         return `<div class="job food">
           <div class="jh"><span class="ci" style="color:var(--r-food)">${G.ICON.food}</span><b>${esc(x.workers[s.era])}</b><span class="jp" id="${bind(() => Math.round(game.fr.food * 100) + '%')}"></span></div>
           <div class="jn"><span id="${bind(() => G.fmtInt(game.s.pop * game.fr.food))}"></span> trabalhando · excedente <span id="${bind(() => G.fmtRate(game.rate.food))}"></span></div>
-          <label class="sl">Reserva de alimento <input type="range" min="0" max="100" step="5" value="${Math.round(s.margin * 100)}" data-margin="1"><span id="${bind(() => '+' + Math.round(game.s.margin * 100) + '%')}"></span></label>
-          <p class="hint">A comida é distribuída automaticamente. A reserva vira estoque para fundar novas terras.</p>
+          <label class="sl">Reserva de alimento <input type="range" min="0" max="200" step="5" value="${Math.round(s.margin * 100)}" data-margin="1"><span id="${bind(() => '+' + Math.round(game.s.margin * 100) + '%')}"></span></label>
+          <p class="hint">Os agricultores são ajustados sozinhos para alimentar o povo; melhorias agrícolas liberam gente para os outros setores. A reserva é a comida a mais (em % do consumo) que vira estoque para novas terras e para a Evolução Humana — subir a reserva custa pouca mão de obra nas eras avançadas.</p>
         </div>`;
       }
       return `<div class="job">
@@ -586,9 +586,9 @@
     let h = '<p class="hint lead">A engenharia genética abre um novo caminho: em vez de mudar o mundo para caber em nós, mudamos a nós mesmos para caber no universo.</p>';
     h += G.GENES.map((x) => {
       const st = game.geneState(x);
-      const c = game.geneCost(x);
+      const c = () => game.geneCost(x);
       return `<div class="gene ${st}"><div class="ih"><b>${esc(x.name)}</b><span class="tag">${ROMAN[x.era]}</span></div><div class="id">${esc(x.desc)}</div><div class="ie">${effLines(x.eff).map(esc).join(' · ')}</div>
-        ${st === 'done' ? '<div class="done-line">Incorporada ao genoma humano</div>' : st === 'open' ? `<div class="ia">${costHTML(c)}<button class="btn" data-act="gene" data-id="${x.id}" id="${bind(() => ({ d: !afford(c) }))}">Aplicar</button></div>` : `<div class="id">${st === 'future' ? 'Disponível na ' + esc(G.ERAS[x.era].name) : 'Requer ' + esc(x.req.map((r) => G.GENE[r].name).join(' e '))}</div>`}</div>`;
+        ${st === 'done' ? '<div class="done-line">Incorporada ao genoma humano</div>' : st === 'open' ? `<div class="ia">${costHTML(c)}<button class="btn" data-act="gene" data-id="${x.id}" id="${bind(() => ({ d: !afford(c()) }))}">Aplicar</button></div>` : `<div class="id">${st === 'future' ? 'Disponível na ' + esc(G.ERAS[x.era].name) : 'Requer ' + esc(x.req.map((r) => G.GENE[r].name).join(' e '))}</div>`}</div>`;
     }).join('');
     return h;
   };

@@ -825,7 +825,11 @@
   }
 
   // ---------- evolução humana ----------
-  game.geneCost = (x) => ({ knowledge: BAL.KC[x.era] * x.c * 2.2 * game.d.mods.tech, food: BAL.SC[x.era] * x.c * 3 });
+  // o alimento dos genes é medido em segundos do consumo do povo (como as terras); genes de eras passadas ficam mais baratos
+  game.geneCost = function (x) {
+    const s = game.s, old = Math.pow(0.4, Math.max(0, s.era - x.era));
+    return { knowledge: BAL.KC[x.era] * x.c * 2.2 * game.d.mods.tech, food: BAL.GSECS * x.c * s.pop * 0.3 * BAL.eat * old };
+  };
   game.geneState = function (x) {
     const s = game.s;
     if (s.genes[x.id]) return 'done';
