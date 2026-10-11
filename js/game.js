@@ -625,8 +625,8 @@
     const base = b.era === 0 ? BAL.SC[0] * 0.6 : BAL.SC[b.era - 1] * BAL.BF;
     const sc = base * b.c * Math.pow(BAL.buildGrowth, n) * game.d.mods.build;
     const c = { materials: sc };
-    if (b.era >= 2) c.wealth = sc * BAL.RW[b.era] * 0.7;
-    if (b.era >= 7) c.energy = sc * BAL.RE[b.era] * 0.7;
+    if (b.era >= 2) c.wealth = sc * BAL.RW[b.era] * 0.25;
+    if (b.era >= 7) c.energy = sc * BAL.RE[b.era] * 0.3;
     return c;
   };
   // a versão mais avançada da linha disponível nesta era
@@ -765,8 +765,8 @@
     if (stage == null) stage = game.wonderStage(w.id);
     const sc = BAL.SC[w.era] * w.c * 9 * game.d.mods.build * game.WSTAGE[Math.min(2, stage)];
     const c = { materials: sc, culture: sc * 0.25 };
-    if (w.era >= 2) c.wealth = sc * BAL.RW[w.era] * 0.8;
-    if (w.era >= 6) c.energy = sc * BAL.RE[w.era] * 0.8;
+    if (w.era >= 2) c.wealth = sc * BAL.RW[w.era] * 0.35;
+    if (w.era >= 6) c.energy = sc * BAL.RE[w.era] * 0.4;
     return c;
   };
   game.wonderState = function (w) {
@@ -864,7 +864,7 @@
     if (st === 1) return { materials: sc * 3, energy: sc * 3 * re * 0.8 };
     const L = st - 2;
     const f = 8 * Math.pow(2.3, L);
-    return { materials: sc * f, energy: sc * f * re * 0.8, wealth: sc * f * rw * 0.6 };
+    return { materials: sc * f, energy: sc * f * re * 0.5, wealth: sc * f * rw * 0.3 };
   };
   game.stageLabel = function (b, st) {
     if (st <= 0) return 'Desconhecido';
@@ -952,7 +952,7 @@
     const R = Math.min(game.galRange(), 400);
     const c = game.scale() * (BAL.BC[game.s.era] || 1) * 2.2 * Math.pow(1 + (game.galCount || 1) / 5, 1.3) * (1 + (d / Math.max(R, 1)) * 0.4) * (1.25 - 0.45 * s.hab) * game.d.mods.space;
     const e = game.s.era;
-    return { materials: c, energy: c * BAL.RE[e] * 0.8, wealth: c * BAL.RW[e] * 0.6 };
+    return { materials: c, energy: c * BAL.RE[e] * 0.5, wealth: c * BAL.RW[e] * 0.3 };
   };
   game.colonize = function (j) {
     const f = game.galFrontier().find((x) => x.j === j);

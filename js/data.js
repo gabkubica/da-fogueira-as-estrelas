@@ -10,7 +10,7 @@
     KC: [4.85e1, 2.93e4, 5.59e6, 1.90e8, 2.32e9, 4.63e10, 9.26e11, 2.32e13, 3.61e16, 1.39e23, 7.91e24, 2.37e26],
     TC: [19.9, 7.24, 5.54, 4.81, 3.39, 1.93, 0.906, 0.479, 0.1, 0.1, 0.1, 0.1], // segundos de capacidade produtiva por terra (ritmo da expansão por era)
     BC: [1, 1, 1, 1, 1, 1, 1, 1, 0.000108, 0.0001, 0.0489, 0.00521], // fator de custo de corpos celestes e sistemas estelares
-    BF: 25, // custo das construções da era E = escala da era E-1 × BF
+    BF: 15, // custo das construções da era E = escala da era E-1 × BF
     // quanto o império produz de riqueza e energia para cada unidade de materiais (por era);
     // os custos nesses recursos seguem essa proporção, para nenhum deles virar gargalo eterno
     RW: [0, 0, 0.0116, 0.037, 0.0503, 0.147, 0.0844, 0.0825, 0.359, 0.0597, 0.00109, 0.00107],
