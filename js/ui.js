@@ -645,6 +645,22 @@
     $('#panel-toggle').addEventListener('click', () => document.body.classList.toggle('panel-open'));
   };
 
+  // ---------------- erros visíveis ----------------
+  UI.reportError = function (msg) {
+    if (UI._errShown) return;
+    UI._errShown = true;
+    const d = document.createElement('div');
+    d.className = 'errbox';
+    d.innerHTML = '<b>Algo deu errado.</b><span>' + esc(msg) + '</span><small>Tire um print desta mensagem e mande para quem fez o jogo. Recarregar a página costuma resolver.</small><button class="btn sm">Fechar</button>';
+    d.querySelector('button').onclick = () => d.remove();
+    document.body.appendChild(d);
+  };
+  UI.fatal = function (msg) {
+    const ld = document.getElementById('loading');
+    if (ld) { ld.hidden = false; ld.querySelector('span').textContent = msg; }
+    UI.reportError(msg);
+  };
+
   // ---------------- modais ----------------
   UI.modal = function (html, opts) {
     opts = opts || {};

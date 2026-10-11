@@ -53,6 +53,8 @@
   };
 
   // ---------------- início ----------------
+  addEventListener('error', (e) => { if (UI.fatal && e && e.message) UI.reportError(e.message + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')); });
+  addEventListener('unhandledrejection', (e) => { if (UI.reportError) UI.reportError(String(e.reason && e.reason.message || e.reason)); });
   function boot() {
     canvas = $('#view');
     ctx = canvas.getContext('2d');
@@ -198,8 +200,11 @@
   setInterval(simStep, 100);
   setInterval(() => { if (M.running) game.save(); }, 20000);
   let last = performance.now(), uiT = 0, saveT = 0;
-  function frame(t) {
-    const dt = Math.min(0.25, (t - last) / 1000);
+  let lastFrame = 0;
+  setInterval(() => { if (performance.now() - lastFrame > 400) frame(performance.now(), true); }, 250);
+  function frame(t, fromWatchdog) {
+    lastFrame = performance.now();
+    const dt = Math.min(0.25, Math.max(0, (t - last) / 1000));
     last = t;
     if (M.running) {
       uiT += dt;
@@ -213,7 +218,7 @@
       if (MV.style === 'night' && t - (M.lastLights || 0) > 5000) { M.lastLights = t; MV.lightsDirty = true; }
       draw(dt, t / 1000);
     }
-    requestAnimationFrame(frame);
+    if (!fromWatchdog) requestAnimationFrame(frame);
   }
   function draw(dt, time) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -222,7 +227,7 @@
       else if (M.view === 'globe') SV.drawGlobeView(ctx, time, dt);
       else if (M.view === 'solar') SV.drawSolar(ctx, time);
       else if (M.view === 'galaxy') { SV.updateGalaxy(dt); SV.drawGalaxy(ctx, time); }
-    } catch (e) { if (!M.drawErr) { M.drawErr = true; console.error(e); } }
+    } catch (e) { if (!M.drawErr) { M.drawErr = true; console.error(e); UI.reportError('Desenho do mapa: ' + (e && e.message ? e.message : e)); } }
   }
 
   // ---------------- entrada ----------------

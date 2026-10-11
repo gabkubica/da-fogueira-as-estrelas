@@ -211,14 +211,17 @@
     ctx.restore();
   }
 
-  function runJob(gen, onDone, onProg, budget) {
+  // fatia o trabalho com setTimeout (não depende de requestAnimationFrame, que alguns navegadores pausam)
+  function runJob(gen, onDone, onProg, budget, onErr) {
     const step = () => {
       const t0 = performance.now();
       let r;
-      do { r = gen.next(); if (onProg && r.value != null) onProg(r.value); } while (!r.done && performance.now() - t0 < (budget || 40));
-      if (r.done) onDone(); else requestAnimationFrame(step);
+      try {
+        do { r = gen.next(); if (onProg && r.value != null) onProg(r.value); } while (!r.done && performance.now() - t0 < (budget || 40));
+      } catch (e) { console.error(e); if (onErr) onErr(e); return; }
+      if (r.done) onDone(); else setTimeout(step, 0);
     };
-    step();
+    setTimeout(step, 0);
   }
 
   // ---------------- símbolos desenhados ----------------
@@ -356,13 +359,24 @@
     MV.building[styleId] = [cb];
     const W = Math.round(H.MW * MV.TS), Hh = Math.round(H.MH * MV.TS);
     const out = { wantMask: !MV.mask, glyphs: true, half: true };
+    const fail = (e) => {
+      // plano B: resolução menor; se ainda falhar, avisa na tela
+      if (MV.TS > 1) {
+        const cbs = MV.building[styleId] || [];
+        delete MV.building[styleId];
+        MV.TS = 1; MV.mask = null; MV.terr = null; MV.lights = null;
+        MV.ensureStyle(styleId, () => cbs.forEach((f) => f && f()), onProg);
+        return;
+      }
+      if (G.ui && G.ui.fatal) G.ui.fatal('Não foi possível desenhar o mapa: ' + (e && e.message ? e.message : e));
+    };
     runJob(terrainJob(G.game.world, styleId, W, Hh, out), () => {
       MV.styles[styleId] = out.canvas;
       if (out.mask) MV.mask = out.mask;
       const cbs = MV.building[styleId];
       delete MV.building[styleId];
       cbs.forEach((f) => f && f());
-    }, onProg);
+    }, onProg, 40, fail);
   };
   MV.reset = function () {
     MV.styles = {}; MV.building = {}; MV.mask = null; MV.style = null; MV.prevStyle = null;
@@ -742,7 +756,7 @@
     ctx.imageSmoothingEnabled = true;
     if (MV.prevStyle && MV.fade < 1) { base(MV.styles[MV.prevStyle], 1); base(MV.styles[st], MV.fade); }
     else base(MV.styles[st], 1);
-    if (st !== 'night' && MV.paper) {
+    if (st !== 'night' && MV.paper && !MV.noPaper) try {
       ctx.save();
       ctx.globalCompositeOperation = 'multiply';
       ctx.globalAlpha = st === 'parchment' ? 0.32 : 0.2;
@@ -753,7 +767,7 @@
       pat.setTransform(m);
       ctx.fillStyle = pat; ctx.fillRect(0, 0, W, Hh);
       ctx.restore();
-    }
+    } catch (e) { MV.noPaper = true; ctx.restore(); }
     base(MV.terr, 1);
     if (st === 'night' && MV.lights) {
       ctx.globalCompositeOperation = 'lighter';
