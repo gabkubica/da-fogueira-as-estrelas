@@ -196,7 +196,8 @@
   };
 
   game.seaRange = function () { const f = game.d.fl; return f.seaRange >= 999 ? 999 : f.seaRange > 0 ? f.seaRange + f.seaAdd : 0; };
-  game.galRange = function () { const f = game.d.fl; return f.rangeAdd >= 999 ? 1e9 : f.range + f.rangeAdd; };
+  // alcance: propulsão + rede de faróis (cada colônia estende um pouco o alcance das naves)
+  game.galRange = function () { const f = game.d.fl; if (f.rangeAdd >= 999) return 1e9; if (!f.range) return 0; return f.range + f.rangeAdd + 4 * Math.sqrt(Math.max(0, (game.galCount || 1) - 1)); };
 
   game.capacity = function () {
     const s = game.s;
@@ -621,13 +622,22 @@
   game.buildingCost = function (id, n) {
     const b = G.BUILDING[id];
     if (n == null) n = game.s.buildings[id] || 0;
-    const sc = BAL.SC[b.era] * b.c * Math.pow(BAL.buildGrowth, n) * game.d.mods.build * 0.6;
+    const base = b.era === 0 ? BAL.SC[0] * 0.6 : BAL.SC[b.era - 1] * BAL.BF;
+    const sc = base * b.c * Math.pow(BAL.buildGrowth, n) * game.d.mods.build;
     const c = { materials: sc };
-    if (b.era >= 2) c.wealth = sc * 0.45;
-    if (b.era >= 7) c.energy = sc * 0.35;
+    if (b.era >= 2) c.wealth = sc * BAL.RW[b.era] * 0.7;
+    if (b.era >= 7) c.energy = sc * BAL.RE[b.era] * 0.7;
     return c;
   };
-  game.buildingUnlocked = (b) => b.era <= game.s.era;
+  // a versão mais avançada da linha disponível nesta era
+  game.lineCurrent = function (line) {
+    const L = G.LINES[line] || [];
+    let cur = null;
+    for (const b of L) if (b.era <= game.s.era) cur = b;
+    return cur;
+  };
+  game.lineNext = function (line) { return (G.LINES[line] || []).find((b) => b.era > game.s.era) || null; };
+  game.buildingUnlocked = (b) => b.era <= game.s.era && game.lineCurrent(b.line) === b;
   game.buy = function (id, count) {
     const b = G.BUILDING[id];
     if (!b || !game.buildingUnlocked(b)) return 0;
@@ -755,8 +765,8 @@
     if (stage == null) stage = game.wonderStage(w.id);
     const sc = BAL.SC[w.era] * w.c * 9 * game.d.mods.build * game.WSTAGE[Math.min(2, stage)];
     const c = { materials: sc, culture: sc * 0.25 };
-    if (w.era >= 2) c.wealth = sc * 0.4;
-    if (w.era >= 6) c.energy = sc * 0.3;
+    if (w.era >= 2) c.wealth = sc * BAL.RW[w.era] * 0.8;
+    if (w.era >= 6) c.energy = sc * BAL.RE[w.era] * 0.8;
     return c;
   };
   game.wonderState = function (w) {
@@ -847,13 +857,14 @@
   game.bodyStage = (id) => game.s.space.bodies[id] || 0;
   game.bodyMaxStage = (b) => 2 + b.max;
   game.bodyCost = function (b, st) {
-    const e = game.bodyEra(b), d = 1 + (b.diff - 1) * 0.15, m = game.d.mods.space;
+    const e = game.bodyEra(b), d = 1 + (b.diff - 1) * 0.15, m = game.d.mods.space * (BAL.BC[e] || 1);
     const sc = BAL.SC[e] * d * m, kc = BAL.KC[e] * d * m;
-    if (st === 0) return { knowledge: kc * 1.2, energy: sc * 0.8 };
-    if (st === 1) return { materials: sc * 3, energy: sc * 1.6 };
+    const re = BAL.RE[e] || 0.003, rw = BAL.RW[e] || 0.04;
+    if (st === 0) return { knowledge: kc * 1.2, energy: sc * re * 2 };
+    if (st === 1) return { materials: sc * 3, energy: sc * 3 * re * 0.8 };
     const L = st - 2;
     const f = 8 * Math.pow(2.3, L);
-    return { materials: sc * f, energy: sc * f * 0.5, wealth: sc * f * 0.35 };
+    return { materials: sc * f, energy: sc * f * re * 0.8, wealth: sc * f * rw * 0.6 };
   };
   game.stageLabel = function (b, st) {
     if (st <= 0) return 'Desconhecido';
@@ -912,6 +923,7 @@
       if (o === 0) { c++; if (i !== game.gal.sol) cap += sys[i].hab * 3e9 + 3e8; }
       else if (o > 0) per[o]++;
     }
+    if (game.galCount !== c) game.dirty.gal = true;
     game.galCount = c; game.galCap = cap; game.alienSys = per;
   };
   game.galFrac = () => (game.gal ? (game.galCount || 0) / game.gal.sys.length : 0);
@@ -922,13 +934,15 @@
     const sys = game.gal.sys, own = game.gown, R = game.galRange();
     const humans = [];
     for (let i = 0; i < sys.length; i++) if (own[i] === 0) humans.push(i);
-    const out = [];
+    const out = [], far = [];
     for (let j = 0; j < sys.length; j++) {
       if (own[j] !== -1) continue;
       let md = 1e9;
       for (const h of humans) { const d = Math.hypot(sys[h].x - sys[j].x, sys[h].y - sys[j].y); if (d < md) md = d; }
       if (md <= R) out.push({ j, d: md });
+      else far.push({ j, d: md, far: true });
     }
+    if (!out.length && far.length) { far.sort((a, b) => a.d - b.d); out.push(...far.slice(0, 3)); }
     game._gf = out;
     game.dirty.gal = false;
     return out;
@@ -936,8 +950,9 @@
   game.sysCost = function (j, d) {
     const s = game.gal.sys[j];
     const R = Math.min(game.galRange(), 400);
-    const c = game.scale() * 2.2 * Math.pow(1 + (game.galCount || 1) / 5, 1.3) * (1 + (d / Math.max(R, 1)) * 0.4) * (1.25 - 0.45 * s.hab) * game.d.mods.space;
-    return { materials: c, energy: c * 0.6, wealth: c * 0.3 };
+    const c = game.scale() * (BAL.BC[game.s.era] || 1) * 2.2 * Math.pow(1 + (game.galCount || 1) / 5, 1.3) * (1 + (d / Math.max(R, 1)) * 0.4) * (1.25 - 0.45 * s.hab) * game.d.mods.space;
+    const e = game.s.era;
+    return { materials: c, energy: c * BAL.RE[e] * 0.8, wealth: c * BAL.RW[e] * 0.6 };
   };
   game.colonize = function (j) {
     const f = game.galFrontier().find((x) => x.j === j);
@@ -974,11 +989,13 @@
   }
   game.alienOf = (id) => game.s.galaxy.aliens.find((a) => a.id === id);
   game.alienIdx = (id) => G.ALIENS.findIndex((a) => a.id === id) + 1;
-  game.alienBase = function (a) {
+  // segundos de produção por sistema (escala com o tamanho da espécie e o seu poder)
+  game.alienSecs = function (a) {
     const cnt = game.alienSys ? game.alienSys[game.alienIdx(a.id)] : 1;
-    return game.scale() * 5 * Math.sqrt(cnt + 1);
+    return 25 * Math.sqrt(cnt + 1) * (BAL.AF[game.s.era] || 1);
   };
-  game.alienPer = function (a) { return game.scale() * 28 * G.ALIEN[a.id].power; };
+  game.alienBase = function (a) { return game.alienSecs(a); };
+  game.alienPer = function (a) { return 40 * G.ALIEN[a.id].power * (BAL.AF[game.s.era] || 1); };
   game.dip = () => game.d.fl.diplomacy * game.d.mods.diplomacy;
   game.alienActions = function (a) {
     const A = G.ALIEN[a.id], s = game.s;
@@ -988,20 +1005,20 @@
     const cd = a.cd > s.time;
     const hostileOnly = A.id === 'krrath';
     if (!a.war && !hostileOnly) {
-      out.push({ id: 'gift', name: 'Enviar presentes', desc: '+12 de relação', cost: { wealth: game.alienBase(a) * 3 }, ok: !cd });
-      out.push({ id: 'exchange', name: 'Intercâmbio cultural', desc: '+9 de relação e saber', cost: { culture: game.alienBase(a) }, ok: !cd });
+      out.push({ id: 'gift', name: 'Enviar presentes', desc: '+12 de relação', cost: { wealth: game.alienBase(a) * game.pot('wealth') }, ok: !cd });
+      out.push({ id: 'exchange', name: 'Intercâmbio cultural', desc: '+9 de relação e saber', cost: { culture: game.alienBase(a) * game.pot('culture') }, ok: !cd });
       if (!a.allied) out.push({ id: 'ally', name: 'Propor aliança', desc: `Exige relação ${A.id === 'sarn' ? 75 : 60}+. Concede bônus permanente.`, cost: {}, ok: a.rel >= (A.id === 'sarn' ? 75 : 60) });
       if (a.allied) {
         const need = A.id === 'lumen' ? !!s.techs.transferencia : true;
-        out.push({ id: 'integrate', name: 'Integração pacífica', desc: `Exige aliança e relação 85+${A.id === 'lumen' ? ' e Transferência de Consciência' : ''}. Todos os ${cnt} sistemas tornam-se humanos.`, cost: { culture: game.alienPer(a) * cnt * 0.9 * game.d.mods.absorb }, ok: a.rel >= 85 && need });
+        out.push({ id: 'integrate', name: 'Integração pacífica', desc: `Exige aliança e relação 85+${A.id === 'lumen' ? ' e Transferência de Consciência' : ''}. Todos os ${cnt} sistemas tornam-se humanos.`, cost: { culture: game.alienPer(a) * cnt * 0.9 * game.pot('culture') * game.d.mods.absorb }, ok: a.rel >= 85 && need });
       }
       out.push({ id: 'war', name: 'Declarar guerra', desc: 'Relação vai a −100. Outras espécies desaprovam.', cost: {}, ok: true, danger: true });
     } else {
       if (!a.war) out.push({ id: 'war', name: 'Iniciar ofensiva', desc: 'O Enxame não negocia.', cost: {}, ok: true, danger: true });
       else {
         const k = Math.min(3, cnt);
-        out.push({ id: 'attack', name: `Ofensiva (${k} sistema${k > 1 ? 's' : ''})`, desc: 'Conquista os sistemas mais próximos.', cost: { military: game.alienPer(a) * k * game.d.mods.conquest }, ok: !cd, danger: true });
-        if (!hostileOnly) out.push({ id: 'peace', name: 'Propor paz', desc: 'Encerra a guerra. Relação volta a −30.', cost: { wealth: game.alienBase(a) * 6 }, ok: !cd });
+        out.push({ id: 'attack', name: `Ofensiva (${k} sistema${k > 1 ? 's' : ''})`, desc: 'Conquista os sistemas mais próximos.', cost: { military: game.alienPer(a) * k * game.pot('military') * game.d.mods.conquest }, ok: !cd, danger: true });
+        if (!hostileOnly) out.push({ id: 'peace', name: 'Propor paz', desc: 'Encerra a guerra. Relação volta a −30.', cost: { wealth: game.alienBase(a) * 2 * game.pot('wealth') }, ok: !cd });
       }
     }
     return out;
@@ -1069,11 +1086,11 @@
       const A = G.ALIENS[k];
       const idx = k + 1;
       if (!a.contact) {
-        let hit = !!game.d.fl.reveal;
+        let hit = !!game.d.fl.reveal || (game.galCount || 0) >= 20;
         if (!hit) {
           outer: for (let j = 0; j < sys.length; j++) {
             if (own[j] !== idx) continue;
-            for (let h = 0; h < sys.length; h++) if (own[h] === 0 && Math.hypot(sys[h].x - sys[j].x, sys[h].y - sys[j].y) < R + 45) { hit = true; break outer; }
+            for (let h = 0; h < sys.length; h++) if (own[h] === 0 && Math.hypot(sys[h].x - sys[j].x, sys[h].y - sys[j].y) < R + 90) { hit = true; break outer; }
           }
         }
         if (hit) {
@@ -1093,22 +1110,17 @@
         if (!a.nextRaid) a.nextRaid = s.time + 120 + Math.random() * 120;
         if (s.time >= a.nextRaid) {
           a.nextRaid = s.time + 150 + Math.random() * 150;
-          const power = game.alienPer(a) * 1.2;
+          const power = game.alienPer(a) * 1.2 * game.pot('military');
           if (s.res.military >= power) {
             s.res.military -= power * 0.5;
             game.emit('toast', { text: `Ataque de ${A.full} repelido pela frota`, kind: 'war' });
             game.log(`Uma frota de ${A.full} atacou nossa fronteira e foi repelida.`, 'war');
           } else {
-            let best = -1, bd = 1e9;
-            for (let j = 0; j < sys.length; j++) {
-              if (own[j] !== 0 || j === game.gal.sol) continue;
-              for (let h = 0; h < sys.length; h++) if (own[h] === idx) { const d = Math.hypot(sys[h].x - sys[j].x, sys[h].y - sys[j].y); if (d < bd) { bd = d; best = j; } }
-            }
-            if (best >= 0 && bd < 120) {
-              setSys(best, idx);
-              game.emit('toast', { text: `${A.full} tomaram ${sys[best].name}!`, kind: 'bad' });
-              game.log(`${A.full} invadiram ${sys[best].name}. Precisamos de mais força militar.`, 'war');
-            }
+            // ataque não repelido: saque nas colônias da fronteira (não toma sistemas)
+            for (const k of ['materials', 'energy', 'wealth']) s.res[k] *= 0.88;
+            s.res.military = 0;
+            game.emit('toast', { text: `${A.full} saquearam colônias da fronteira`, kind: 'bad' });
+            game.log(`Uma frota de ${A.full} saqueou colônias humanas da fronteira. Mais força militar teria evitado o ataque.`, 'war');
           }
         }
       }
@@ -1195,7 +1207,7 @@
     if (s.auto.build && d.fl.autoBuild) {
       let best = null, bc = Infinity;
       for (const b of G.BUILDINGS) {
-        if (!game.buildingUnlocked(b) || b.era < s.era - 2) continue;
+        if (!game.buildingUnlocked(b)) continue;
         const c = game.buildingCost(b.id);
         let ok = true, tot = 0;
         for (const k in c) { if (s.res[k] * 0.3 < c[k]) ok = false; tot += c[k] / (BAL.SC[b.era] || 1); }

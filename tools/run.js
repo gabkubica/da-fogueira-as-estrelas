@@ -1,35 +1,9 @@
 // Executa uma partida simulada e devolve os tempos de chegada a cada era.
 const G = require('./dbg.js'); const game = G.game;
-function botStep(s) {
-  const d = game.d;
-  if (s.cd.effort <= s.time) game.effort(s.era < 1 ? 'materials' : 'knowledge');
-  const open = G.TECHS.filter((t) => game.techState(t) === 'open').sort((a, b) => game.techCost(a).knowledge - game.techCost(b).knowledge);
-  if (open.length) game.research(open[0].id);
-  if (s.policies.length < d.slots) { const p = [...d.pols].find((x) => !s.policies.includes(x)); if (p) game.togglePolicy(p); }
-  for (const rv of s.rivals) if (game.canAnnex(rv.id)) { if (!game.annex(rv.id, 'military') && !game.annex(rv.id, 'culture')) { if (!game.annexPart(rv.id, 'military')) game.annexPart(rv.id, 'culture'); } }
-  for (const w of G.WONDERS) if (game.wonderState(w) === 'open') game.buildWonder(w.id);
-  for (const b of G.BODIES) if (game.bodyUnlocked(b)) game.advanceBody(b.id);
-  for (const x of G.GENES) if (game.geneState(x) === 'open') game.buyGene(x.id);
-  if (game.gal) {
-    for (let i = 0; i < 5; i++) if (!game.colonizeBest()) break;
-    s.galaxy.aliens.forEach((a) => {
-      const acts = game.alienActions(a);
-      for (const id of ['integrate', 'ally', 'attack', 'gift', 'exchange']) { const x = acts.find((y) => y.id === id); if (x && x.ok && game.alienAct(a.id, id)) break; }
-      if (a.contact && !a.gone && !a.war && a.rel < 0) game.alienAct(a.id, 'war');
-    });
-  }
-  for (let i = 0; i < 3; i++) { const h = game.bestTile(); if (h < 0) break; if (!game.claimTile(h)) break; }
-  for (let i = 0; i < 4; i++) {
-    let best = null, bc = Infinity;
-    for (const b of G.BUILDINGS) { if (b.era > s.era || b.era < s.era - 2) continue; const c = game.buildingCost(b.id); let tot = 0; for (const k in c) tot += c[k] / Math.max(1, s.res[k]); if (tot < bc) { bc = tot; best = b.id; } }
-    if (!best || bc > 0.5 || !game.buy(best, 1)) break;
-  }
-  s.weights.military = game.frontier().touch.size || (s.galaxy && s.galaxy.aliens.some((a) => a.war)) ? 4 : 1;
-  s.auto.expand = s.auto.build = s.auto.research = s.auto.colonize = true;
-}
+const botStep = G.botStep;
 module.exports = function run(seed, maxH, log, stopEra) {
   game.start(game.newState({ seed, civName: 'Teste', color: '#b3261e', voice: 5 }));
-  const s = game.s, eraT = [0], techT = [], needT = [];
+  const s = game.s, eraT = [0], techT = [], needT = [], incT = [];
   let t = 0, next = 0, last = 0;
   const dt = 0.5;
   while (t < maxH * 3600) {
@@ -39,6 +13,7 @@ module.exports = function run(seed, maxH, log, stopEra) {
     if (t >= next) {
       botStep(s); next = t + 1;
       const e = s.era, key = G.TECHS.find((x) => x.era === e && x.eff.era);
+      if (incT[e] == null && eraT[e] != null && t >= eraT[e] + 90) incT[e] = { m: game.gross.materials, w: game.gross.wealth, en: game.gross.energy };
       if (key) {
         if (techT[e] == null && game.eraTechs(e).every((x) => x === key || s.techs[x.id])) techT[e] = t;
         if (needT[e] == null && game.needMet(key.eff.need)) needT[e] = t;
@@ -53,6 +28,6 @@ module.exports = function run(seed, maxH, log, stopEra) {
     if (stopEra != null && s.era >= stopEra) break;
   }
   if (log) console.log('fim: era', s.era, 'pop', G.fmt(s.pop), 'sistemas', game.galCount || 0, 'tempo', (t / 3600).toFixed(2), 'h', 'vitória', s.victory, 'legado', game.legacyGain());
-  return { eraT, techT, needT, s, t };
+  return { eraT, techT, needT, incT, s, t };
 };
 if (require.main === module) module.exports(+(process.argv[2] || 12345), +(process.argv[3] || 10), true);

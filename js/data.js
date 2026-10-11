@@ -6,9 +6,16 @@
   // ======================= EQUILÍBRIO =======================
   // Escalas de custo por era. Ajustadas por simulação (tools/sim.js).
   G.BAL = {
-    SC: [6.06e1, 3.98e4, 3.58e6, 7.21e7, 5.05e9, 1.01e11, 2.29e12, 6.32e13, 1.64e16, 3.27e20, 1.23e22, 8.46e23],
-    KC: [4.85e1, 2.93e4, 2.33e6, 4.02e7, 2.53e9, 5.05e10, 1.01e12, 2.53e13, 6.51e15, 1.31e20, 4.91e21, 3.38e23],
-    TC: [40.3, 7.24, 5.54, 4.81, 4.52, 1.51, 0.906, 0.576, 0.1, 0.1, 0.1, 0.1], // segundos de capacidade produtiva por terra (ritmo da expansão por era)
+    SC: [6.06e1, 3.98e4, 8.58e6, 3.42e8, 4.63e9, 9.26e10, 2.09e12, 5.80e13, 9.09e16, 3.48e23, 1.04e26, 3.15e27],
+    KC: [4.85e1, 2.93e4, 5.59e6, 1.90e8, 2.32e9, 4.63e10, 9.26e11, 2.32e13, 3.61e16, 1.39e23, 7.91e24, 2.37e26],
+    TC: [19.9, 7.24, 5.54, 4.81, 3.39, 1.93, 0.906, 0.479, 0.1, 0.1, 0.1, 0.1], // segundos de capacidade produtiva por terra (ritmo da expansão por era)
+    BC: [1, 1, 1, 1, 1, 1, 1, 1, 0.000108, 0.0001, 0.0489, 0.00521], // fator de custo de corpos celestes e sistemas estelares
+    BF: 25, // custo das construções da era E = escala da era E-1 × BF
+    // quanto o império produz de riqueza e energia para cada unidade de materiais (por era);
+    // os custos nesses recursos seguem essa proporção, para nenhum deles virar gargalo eterno
+    RW: [0, 0, 0.0116, 0.037, 0.0503, 0.147, 0.0844, 0.0825, 0.359, 0.0597, 0.00109, 0.00107],
+    RE: [0, 0, 0, 0, 0, 0, 0.000354, 0.00102, 0.00166, 0.0197, 0.914, 6.67],
+    AF: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.489, 0.0521], // fator de custo da diplomacia e guerra com alienígenas
     RIV: 0.3, // anexar um povo custa ~0,6 terra por território dele, pago em força ou cultura
     capPerTile: [4, 16, 55, 160, 420, 1000, 3800, 30000, 60000, 90000, 120000, 150000],
     bonusBase: 0.12, bonusGrowth: 1.7,
@@ -191,6 +198,16 @@
   ];
   G.BUILDING = {};
   G.BUILDINGS.forEach((b) => (G.BUILDING[b.id] = b));
+  // linhas de evolução: cada construção pertence ao setor principal que ela melhora (ou à moradia)
+  G.LINE_ORDER = ['food', 'materials', 'knowledge', 'culture', 'military', 'wealth', 'energy', 'housing'];
+  G.LINE_NAMES = { food: 'Alimento', materials: 'Materiais', knowledge: 'Saber', culture: 'Cultura', military: 'Força', wealth: 'Riqueza', energy: 'Energia', housing: 'Moradia' };
+  G.LINES = {};
+  G.BUILDINGS.forEach((b) => {
+    const ks = Object.keys(b.s);
+    b.line = b.cap ? 'housing' : ks.reduce((a, k) => (b.s[k] > b.s[a] ? k : a), ks[0]);
+    (G.LINES[b.line] = G.LINES[b.line] || []).push(b);
+  });
+  for (const l in G.LINES) G.LINES[l].sort((a, b) => a.era - b.era);
 
   // ======================= TECNOLOGIAS =======================
   // eff: mult{setor:x}, cap, growth, gov, pol, slots, flags, era (avança era)

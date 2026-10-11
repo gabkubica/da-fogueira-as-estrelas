@@ -293,24 +293,27 @@
   // ---- OBRAS ----
   R.obras = function () {
     const s = game.s;
-    let h = '';
+    let h = '<p class="hint lead">Cada linha evolui com as eras. Você constrói sempre a versão mais avançada; o que já foi erguido continua rendendo.</p>';
     if (game.d.fl.autoBuild) h += `<label class="toggle"><input type="checkbox" data-auto="build" ${s.auto.build ? 'checked' : ''}> Construção automática <small>(gasta até 30% do estoque)</small></label>`;
-    for (let e = s.era; e >= 0; e--) {
-      const list = G.BUILDINGS.filter((b) => b.era === e);
-      if (!list.length) continue;
-      const inner = list.map((b) => {
-        const n = s.buildings[b.id] || 0;
-        const c = game.buildingCost(b.id);
-        const bon = G.buildingBonus(b.era);
-        const eff = b.cap ? `Moradia +${Math.round(G.buildingCapBonus(b.era) * b.cap * 100)}% cada` : Object.keys(b.s).map((k) => `${RN[k]} +${Math.round(bon * b.s[k] * 100)}% cada`).join(' · ');
-        return `<div class="item">
-          <div class="ih"><b>${esc(b.name)}</b><span class="cnt">${n}</span></div>
-          <div class="id">${esc(b.desc)}</div>
-          <div class="ie">${esc(eff)}</div>
-          <div class="ia">${costHTML(c)}<span class="btns"><button class="btn" data-act="buy" data-id="${b.id}" id="${bind(() => ({ d: !afford(c) }))}">Construir</button><button class="btn ghost" data-act="buymax" data-id="${b.id}" id="${bind(() => ({ d: !afford(c) }))}">Máx</button></span></div>
-        </div>`;
-      }).join('');
-      h += `<details class="era-group" ${e >= s.era - 1 ? 'open' : ''}><summary>${ROMAN[e]} · ${esc(G.ERAS[e].name)}</summary>${inner}</details>`;
+    for (const line of G.LINE_ORDER) {
+      const b = game.lineCurrent(line);
+      if (!b) continue;
+      const n = s.buildings[b.id] || 0;
+      const c = game.buildingCost(b.id);
+      const bon = G.buildingBonus(b.era);
+      const eff = b.cap ? `Moradia +${Math.round(G.buildingCapBonus(b.era) * b.cap * 100)}% cada` : Object.keys(b.s).map((k) => `${RN[k]} +${Math.round(bon * b.s[k] * 100)}% cada`).join(' · ');
+      const legacy = (G.LINES[line] || []).filter((x) => x.era < b.era && (s.buildings[x.id] || 0) > 0);
+      const next = game.lineNext(line);
+      const icon = line === 'housing' ? G.ICON.pop : G.ICON[line];
+      h += `<div class="item line">
+        <div class="lh"><span class="ci" style="color:var(--r-${line === 'housing' ? 'food' : line})">${icon}</span>${G.LINE_NAMES[line]}<span class="lera">${ROMAN[b.era]} · ${esc(G.ERAS[b.era].short)}</span></div>
+        <div class="ih"><b>${esc(b.name)}</b><span class="cnt">${n}</span></div>
+        <div class="id">${esc(b.desc)}</div>
+        <div class="ie">${esc(eff)}</div>
+        <div class="ia">${costHTML(c)}<span class="btns"><button class="btn" data-act="buy" data-id="${b.id}" id="${bind(() => ({ d: !afford(c) }))}">Construir</button><button class="btn ghost" data-act="buymax" data-id="${b.id}" id="${bind(() => ({ d: !afford(c) }))}">Máx</button></span></div>
+        ${legacy.length ? `<div class="legacy">Legado: ${legacy.map((x) => esc(x.name) + ' ×' + s.buildings[x.id]).join(' · ')}</div>` : ''}
+        ${next ? `<div class="nextb">Na ${esc(G.ERAS[next.era].name)}: ${esc(next.name)}</div>` : ''}
+      </div>`;
     }
     return h;
   };
@@ -543,7 +546,7 @@
       <div class="bar"><i id="${bind(() => ({ w: game.galFrac() * 100 + '%' }))}"></i></div>
       <div class="kv"><span>Alcance</span><b>${game.galRange() > 1e8 ? 'ilimitado' : Math.round(game.galRange()) + ' anos-luz'}</b></div>
       <div class="kv"><span>Ao alcance</span><b>${f.length} sistemas livres</b></div>
-      ${best ? (() => { const sc = memo(() => game.sysCost(best.j, best.d)); return `<div class="ia">${costHTML(sc)}<button class="btn" data-act="colonize" id="${bind(() => ({ d: !afford(sc) }))}">Colonizar ${esc(game.gal.sys[best.j].name)}</button></div>`; })() : '<p class="hint">Nenhum sistema livre ao alcance. Pesquise propulsão melhor.</p>'}
+      ${best ? (() => { const sc = memo(() => game.sysCost(best.j, best.d)); return `<div class="ia">${costHTML(sc)}<button class="btn" data-act="colonize" id="${bind(() => ({ d: !afford(sc) }))}">Colonizar ${esc(game.gal.sys[best.j].name)}</button></div>`; })() : '<p class="hint">Todas as estrelas livres já são humanas. O que resta pertence a outras espécies: alie-se a elas e integre-as, ou conquiste-as.</p>'}
       ${game.d.fl.autoColonize ? `<label class="toggle"><input type="checkbox" data-auto="colonize" ${s.auto.colonize ? 'checked' : ''}> Sondas de Von Neumann colonizam sozinhas</label>` : ''}`);
     const al = s.galaxy.aliens.map((a, k) => ({ a, A: G.ALIENS[k], k }));
     h += sec('Espécies', al.map(({ a, A, k }) => {

@@ -572,3 +572,11 @@ body.panel-collapsed #toasts { right: 16px; }
 .btn { transition: background .08s, color .08s, border-color .08s, transform .05s; }
 .btn:active:not(:disabled), .hud-menu:active, #mapctl button:active, #viewbar button:active, .choice:active { transform: translateY(1px); filter: brightness(1.15); }
 .tab:active { color: var(--accent); }
+
+/* linhas de evolução das construções */
+.item.line { padding-top: 12px; }
+.lh { display: flex; align-items: center; gap: 7px; font-family: var(--num); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink3); margin-bottom: 2px; }
+.lh .lera { margin-left: auto; letter-spacing: .06em; }
+.legacy { margin-top: 6px; font-size: 13px; color: var(--ink3); font-style: italic; }
+.nextb { margin-top: 2px; font-size: 12.5px; color: var(--ink3); }
+.nextb::before { content: '→ '; color: var(--accent); }
